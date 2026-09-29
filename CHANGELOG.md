@@ -72,6 +72,13 @@
 - 文档门禁 `exempt_files` **只比完整相对路径**，导致 `docs/research/` 下的文件
   写文件名不生效（CHANGELOG 因在根目录才碰巧命中）→ 改为路径/文件名任一匹配
 
+### 验证
+
+- 三道静态门禁全绿（文档口径 / Docker 编排 / CI workflow）
+- 全量测试 **356 项 / 355 passed / 1 skipped**（本机）；CI 裸环境模拟（屏蔽
+  pymilvus 等重依赖）**356 项 / 0 失败 / 8 skipped** —— 新模块在 CI 不会红
+- **GitHub Actions 真实 runner 全绿**（run 36545709990，gate + test 双 job）
+
 ### 诚实边界（未做/未实测）
 
 - **真实 Milvus 端到端（建库 + 检索 + 相似度排序）未实测**：本机 Docker daemon
