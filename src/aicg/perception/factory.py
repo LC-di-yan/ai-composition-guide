@@ -37,7 +37,12 @@ def infer_backend_for_source(source: str) -> str | None:
     """
     if source.startswith("camera:"):
         return None
-    return _FIXTURE_BACKEND_HINTS.get(Path(source).stem)
+    # Windows 风格路径（\ 分隔）可能在 Linux/容器环境被解析：POSIX Path
+    # 不认反斜杠，会把整串当文件名，stem 匹配失败返回 None。
+    # CI 真实 runner 首跑实测踩中（本地 Windows 上不可复现）——统一成 /
+    # 再解析，保证同一路径字符串在两个平台路由一致。
+    normalized = str(source).replace("\\", "/")
+    return _FIXTURE_BACKEND_HINTS.get(Path(normalized).stem)
 
 
 def perception_from_settings(settings=None) -> BasePerception:

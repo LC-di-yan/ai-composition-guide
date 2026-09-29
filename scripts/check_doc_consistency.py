@@ -125,6 +125,14 @@ def _has_negative_marker(line: str) -> bool:
     return bool(NEGATIVE_MARKERS.search(line))
 
 
+# 可再生产物前缀：这些路径由脚本在运行时生成（outputs/ 由验收与演示脚本
+# 重建，models/ 由 download_weights.py 重建），**刻意不进版本库**。
+# 文档引用它们是合法的——但在全新克隆（CI runner / 评审者机器）上必然
+# "不存在"。存在性校验只对「应当随仓库分发的文件」有意义；
+# 本地 76MB outputs/ 在时这条豁免看不出来，CI 首跑（全新克隆）才暴露。
+REGENERABLE_PREFIXES = ("outputs/", "models/")
+
+
 def iter_files(globs: list[str]) -> list[Path]:
     out: list[Path] = []
     for g in globs:
@@ -156,6 +164,9 @@ def scan_paths(files: list[Path]) -> list[str]:
             line = lines[line_no - 1] if line_no <= len(lines) else ""
             # 示例/对照行不做存在性校验（"不存在"是其正确语义）
             if _has_negative_marker(line):
+                continue
+            # 可再生产物：不进版本库，新克隆上必然不存在，豁免存在性校验
+            if raw.startswith(REGENERABLE_PREFIXES):
                 continue
             target = PROJECT_ROOT / raw.rstrip("/")
             hit = target.exists() or target.with_suffix(".py").exists()

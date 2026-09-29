@@ -39,6 +39,37 @@
 
 ---
 
+## [0.6.2] - 2026-09-29
+
+### 新增
+
+- **Git 仓库初始化与 GitHub 公开仓库上线**：首次提交 317 文件 / 33,332 行
+  （`LC-di-yan/ai-composition-guide`，main 分支）
+- `.gitattributes`：统一 LF 存储 + 显式二进制类型（png/jpg/mp4/pt/onnx）
+- 首次提交前的**凭据泄漏扫描**：唯一命中为 `credentials.py` 文档字符串中
+  近乎真实的池口令示例 → 消毒为占位符 `tf-pool-<口令>`（真实值只在 keypool 目录）
+- `outputs/.gitkeep` 落地（目录结构文档规划了但此前从未创建——又一处
+  "写了文档没落地"）
+
+### 修复
+
+- **CI 真实 runner 首跑（run 36531334309）抓到 2 个「本地全量环境盲区」缺陷**：
+  - `perception/factory.py` `infer_backend_for_source`：Windows 风格路径
+    （反斜杠分隔）在 Linux/容器下被 POSIX `Path` 当作整串文件名，
+    双源分流路由失效返回 `None` → 统一为正斜杠后再解析；
+  - `scripts/check_doc_consistency.py`：`outputs/`、`models/` 等**可再生产物**
+    新增存在性豁免——文档引用运行时生成的产物是合法的，但本地 76MB
+    outputs/ 存在时门禁看不出问题，全新克隆上 12 处合法引用全变"死链"。
+    修复后本地移走 outputs/ 复现 runner 状态复测通过。
+
+### 变更
+
+- `.gitignore`：`outputs/` → `outputs/* + !outputs/.gitkeep`（保留目录骨架）
+- **教训**：CI 裸环境模拟挡住了"重依赖缺失"，但挡不住"本地有、仓库没有"
+  与"平台差异"——模拟的上限是模拟器的完整度，真实首跑红了才是 CI 在干活。
+
+---
+
 ## [0.6.1] - 2026-09-29
 
 **修复一个「三个常量互不自洽」的跨层缺陷（D-10），并在修复过程中发现
