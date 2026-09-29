@@ -137,6 +137,35 @@ def main() -> int:
     print(f"向量契约: {DIM} 维 = {', '.join(DIM_NAMES)}")
     print("-" * 72)
 
+    # **先握手，再跑图像链路**：实测 Windows + Milvus Lite 下，若 Milvus
+    # 客户端的「首次初始化」发生在帧处理之后，进程会在 Lite 的
+    # pa.RecordBatch 写入路径 SIGSEGV（详见 retrieval.search.warmup 注释）。
+    # 建库脚本因此把 ensure_collection 提到特征提取之前，代价是"库不通时就
+    # 不必浪费 10 秒跑图"（反而更早失败），收益是消除崩溃窗口。
+    store: MilvusStore | None = None
+    if not args.dry_run:
+        store = MilvusStore(
+            MilvusConfig(
+                uri=settings.retrieval.resolved_uri,
+                collection=settings.retrieval.collection,
+                hnsw_m=settings.retrieval.hnsw_m,
+                ef_construction=settings.retrieval.ef_construction,
+                ef=settings.retrieval.ef,
+                timeout_s=settings.retrieval.timeout_s,
+            )
+        )
+        try:
+            if args.rebuild:
+                store.drop()
+                print("已删除既有 collection（--rebuild）")
+            store.ensure_collection()
+            print("已就绪 collection（首次接触先于图像链路）")
+        except StoreError as exc:
+            print(f"\n准备 collection 失败: [{exc.reason}] {exc}")
+            print("提示：Milvus 未启动时请先执行 docker/docker-compose.yml 的 milvus 服务，")
+            print("或用 Milvus Lite 本地文件（AICG_RETRIEVAL_URI=<路径>.db）。")
+            return 1
+
     records: list[CaseRecord] = []
     skipped: list[tuple[str, str]] = []
     t0 = time.perf_counter()
@@ -188,20 +217,8 @@ def main() -> int:
         print("\n无可用案例（全部跳过），不建库。")
         return 1
 
-    store = MilvusStore(
-        MilvusConfig(
-            uri=settings.retrieval.resolved_uri,
-            collection=settings.retrieval.collection,
-            hnsw_m=settings.retrieval.hnsw_m,
-            ef_construction=settings.retrieval.ef_construction,
-            ef=settings.retrieval.ef,
-            timeout_s=settings.retrieval.timeout_s,
-        )
-    )
     try:
-        if args.rebuild:
-            store.drop()
-            print("已删除既有 collection（--rebuild）")
+        assert store is not None  # 入口已保证非 dry-run 时先握手
         inserted = store.upsert(records)
         total = store.count()
     except StoreError as exc:

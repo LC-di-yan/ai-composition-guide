@@ -152,6 +152,19 @@ def create_app(settings: Settings | None = None, *, state: AppState | None = Non
             log.info("感知后端预热完成: %s", app_state.perception.name)
         except Exception as exc:  # noqa: BLE001
             log.warning("感知预热失败（不影响可用性，首帧会较慢）: %s", exc)
+
+        # **检索库预热（崩溃规避，非性能优化）**：实测在 Windows +
+        # Milvus Lite 组合下，若 Milvus 客户端的「首次初始化」发生在帧处理
+        # 链路之后，进程会在 Lite 的 pa.RecordBatch 写入路径 SIGSEGV。
+        # 把首次接触提前到启动期（此时尚未跑过任何帧），即可消掉该窗口。
+        # 注意：感知预热在前、检索预热在后，两者都失败也不拒绝启动。
+        try:
+            if app_state.case_search.warmup():
+                log.info("检索库预热完成")
+            else:
+                log.warning("检索库预热未成功（检索接口将按降级链返回）")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("检索预热失败（不影响可用性，检索将降级）: %s", exc)
         yield
         # 优雅关闭：清理过期会话，记录统计
         swept = app_state.sessions.sweep()

@@ -64,8 +64,10 @@ FACTS: list[dict] = [
     {
         "name": "测试通过数",
         "pattern": r"(\d{3})\s*(?:passed|用例通过|用例)",
-        "allowed": {"355"},
-        "why": "唯一当前值（junit-xml 实测：356 收集 - 1 skipped）。\n"
+        "allowed": {"363"},
+        "why": "唯一当前值（实测：370 收集 - 7 skipped，其中 6 项是未设\n"
+               "AICG_RETRIEVAL_URI 时跳过的真实 Milvus 集成用例）。\n"
+               "355 是上一轮的值（+8 = 新增 load/warmup 6 项 + 纯文本降级 1 项）。\n"
                "334 是 0.6.2 的历史值（+21 = 新增 retrieval 18 项 + test_api 3 项）。",
         # 两个豁免文件都是**流水账/历史快照**：其中的旧值是当时的事实，
         # 改成当前值等于伪造历史。其余文档必须只写当前值。
@@ -79,9 +81,10 @@ FACTS: list[dict] = [
     {
         "name": "测试收集总数",
         "pattern": r"(\d{3})\s*项\s*/",
-        "allowed": {"356"},
-        "why": "356 = 355 passed + 1 skipped（junit tests 属性实测）。\n"
-               "335 是 0.6.2 的历史值（FR-09 检索层带来 +21 项）。\n"
+        "allowed": {"370"},
+        "why": "370 = 363 passed + 7 skipped（pytest 输出实测）。\n"
+               "356 是上一轮的值（+14 = TestEnsureLoaded 5 + TestWarmup 2 +\n"
+               "纯文本降级 1 + 真实 Milvus 集成 6）。\n"
                "与「测试通过数」是**两个口径**：总数用「N 项 /」后缀，通过数用\n"
                "「N passed / N 用例」后缀——禁止混用（曾因写「335 用例」被抓）。",
         "exempt_files": {"CHANGELOG.md"},

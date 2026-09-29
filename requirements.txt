@@ -27,10 +27,26 @@ python-multipart>=0.0.9
 openai>=1.30
 httpx>=0.27
 
-# --- 向量检索（FR-09 案例检索，M6-2 已实现）---
+# --- 向量检索（FR-09 案例检索，M6-2 已实现，M6-3 真跑验证）---
 # 不参与主引导链路，因此**默认不安装**，避免为低频功能引入重依赖。
-# 启用方式（版本刻意封顶，与服务端 2.5.x 次版本对齐）：
-#   pip install "pymilvus>=2.5,<2.6"
+#
+# 启用方式（两条路径，二选一）：
+#
+#   A. 生产/容器路径 —— Milvus Standalone（docker-compose 里的服务）
+#      pip install "pymilvus==2.6.17"
+#      版本选取依据：Milvus 服务端 v2.6.24 的 Release Note 明确其 Python SDK
+#      = 2.6.17，客户/端服务次版本对齐（2.6 vs 2.6）避免协议漂移。
+#
+#   B. 本机免 Docker 路径 —— Milvus Lite（单进程， Windows 实测可用）
+#      pip install "pymilvus==2.6.17" "milvus-lite>=3.0,<3.3"
+#      然后 AICG_RETRIEVAL_URI=<路径>/composition_cases.db
+#      **诚实边界**：Milvus 官方支持矩阵仍只写 Linux/macOS，Windows 属
+#      实测可用但不受官方支持（且踩到两条裂缝，见调研文档 §6）：
+#        1) Milvus 客户端**首次初始化必须在帧处理链路之前**，否则 Lite 在
+#           pa.RecordBatch 写入路径 SIGSEGV；代码侧用启动期预热规避；
+#        2) Lite 落盘用 POSIX 语义的 os.rename，已存在同名文件时 Windows
+#           抛 WinError 183 → 重建请换新的 .db 路径，不要依赖 drop。
+#
 # 未安装时的行为：MilvusClient 建连失败 → /v1/cases/search 返回
 # **200 + degraded=true + pymilvus_unavailable**，绝不 5xx（NFR-R1）。
 # 注意：**不是**"降级为关键词匹配"——早期设想的关键词兜底未实现，

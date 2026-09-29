@@ -21,9 +21,14 @@ services:
   # -------------------------------------------------------------------------
   # Milvus standalone（FR-09 案例检索；单容器内嵌 etcd + 本地存储）
   # 启动配方来源：docs/research/Milvus本地方案调研.md §3（官方文档原样）
+  #
+  # 镜像版本 2.6.24：与客户端 pymilvus==2.6.17 次版本对齐——依据 Milvus
+  # GitHub Releases 页，v2.6.24 的 Release Note 标注其 Python SDK 即
+  # 2.6.17。**未在本机真跑**（本机 Docker 不可用，见调研文档 §6），换深
+  # 次版本时必须同步改 requirements.txt 里的客户端版本。
   # -------------------------------------------------------------------------
   milvus:
-    image: milvusdb/milvus:v2.5.11
+    image: milvusdb/milvus:v2.6.24
     container_name: aicg-milvus
     command: ["milvus", "run", "standalone"]
     security_opt:

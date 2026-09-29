@@ -41,6 +41,59 @@
 
 ---
 
+## [0.8.0] - 2026-09-29
+
+### 新增
+
+- **FR-09 真实 Milvus 端到端验证**（终于不是 dry-run 了）
+  - `tests/test_retrieval_integration.py`：**6 项**真实引擎集成测试（默认跳过，
+    设 `AICG_RETRIEVAL_URI` 才跑）——刻意与 mock 单测分文件，免得"CI 绿了"失真
+  - CI 新增 `retrieval` job（Ubuntu + Milvus Lite）：真实素材建库 → 真实检索，
+    把"真·Milvus 引擎验证"从本机一次性手工行为升级为**可复现的自动化事实**
+  - `CaseSearchService.warmup()`：把"首次接触 Milvus"钉在帧处理之前
+    （应用 lifespan 与建库脚本均已接入）
+- `MilvusStore._ensure_loaded()`：collection 处于 `released` 时自动 load
+
+### 变更
+
+- 检索客户端 `pymilvus` **2.5.18 → 2.6.17**，compose 镜像 **v2.5.11 → v2.6.24**
+  ——维持"client/server 次版本对齐"（v2.6.24 的 Release Note 标注其 Python SDK
+  即 2.6.17）；直接动因是 Lite 3.x 的 search 请求带 `function_score` 字段，
+  pymilvus 2.5 不发该字段，握手能过、一检索就报错
+- 调研文档 §1/§2/§5 **结论更正**：初版写"Milvus Lite 不支持 Windows"，那是对
+  **2.4.x**（内嵌 C++ 二进制）的结论；3.x 改为**纯 Python**（faiss + grpcio +
+  pyarrow）后已不成立。文档里明确记录了这次变更及其依据
+
+### 修复
+
+- **跨进程读取 released 的 collection** → search 报 `code=101`，表现为
+  "库里 40 条却永远搜不到"，还会被误判成 `search_failed`
+- **初始化顺序导致 SIGSEGV**：Milvus 客户端首次初始化若晚于帧处理链路，
+  进程在 Lite 的 `pa.RecordBatch` 路径访问违规崩溃（**5 张图即可触发**）
+- **纯文本路径吞掉存储层故障原因**：Milvus 宕机时报 `text_embedding_unavailable`，
+  把"Milvus 根本没起来"这个更严重的事实藏掉。这个缺陷是**第二次修复引出的**，
+  只跑改过的文件测不出来，是跑全量套件才现形（教训见 测试与验收.md §4.3g）
+- 纯文本无关键词命中时 `index_size` 谎报 `None`：明明连得上却假称"不知道库多大"
+
+### 验证
+
+- 真实建库：42 张素材 → **40 条入库 / 库内 40 条**（2 张无主体诚实跳过）
+- `/v1/cases/search` 走完整 HTTP 栈以图搜图：**不降级**、相似度降序、top1 > 0.9
+- 全量测试 **370 项 / 363 passed / 7 skipped**；三道静态门禁全绿
+
+### 诚实边界（未做/未实测）
+
+- **容器态 standalone（`v2.6.24`）未真跑**：本机 Docker Desktop 无法启动，根因是
+  `wsl.exe` 被执行环境的程序黑名单拦截（Windows 版 Docker 底座即 WSL2）。
+  标签存在性经 GitHub Releases 页核实，但**没有真跑**
+- 本机 `docker compose up api milvus` 全链路互通：同上，仍未实测
+- **Milvus Lite 在 Windows 上属"官方不支持但实测可用"**：官方支持矩阵仍只写
+  Linux/macOS，本机踩到两条裂缝（初始化顺序 SIGSEGV、`drop()` 的 POSIX rename
+  报 WinError 183）。已在代码侧规避并留档调研文档 §6；**CI 刻意跑 Linux**，
+  不把越界用法包装成 CI 承诺
+
+---
+
 ## [0.7.0] - 2026-09-29
 
 ### 新增
@@ -81,9 +134,14 @@
 
 ### 诚实边界（未做/未实测）
 
-- **真实 Milvus 端到端（建库 + 检索 + 相似度排序）未实测**：本机 Docker daemon
-  无法从非交互会话启动（PowerShell `Start-Process`、`cmd start` 均无进程与日志痕迹），
-  需人工双击 Docker Desktop。代码与单测已就绪，daemon 就绪后一步即可验证
+- **容器态 Milvus standalone（`v2.6.24`）未真跑**：本机 Docker Desktop 无法启动，
+  根因已追到 `"wsl.exe` 被执行环境的程序黑名单拦截（Windows 版 Docker 的底座就是
+  WSL2）。镜像标签存在性经 GitHub Releases 页核实，但**没有真跑**，换 tag 需重验
+- **本机 `docker compose up api milvus` 全链路互通**：同上原因，仍未实测
+- **Milvus Lite 在 Windows 上属"官方不支持但实测可用"**：官方支持矩阵仍只写
+  Linux/macOS；本机踩到两条裂缝（初始化顺序导致 SIGSEGV、`drop()` 的 POSIX rename
+  报 WinError 183），已在代码侧规避并在调研文档 §6 留档。**CI 侧刻意跑 Linux**，
+  不把 Windows 越界用法包装成 CI 承诺
 - **rule 后端下 8 维中 2 维退化为常数**：`lead_room`（无人脸 yaw）与
   `saliency_center`（无显著图时取中性 0.5）恒为 0.500，不携带区分信息；
   yolo 后端下 8 维全活。这是"零新增模型"决策的明码代价

@@ -104,10 +104,15 @@ class MilvusStore:
     # Collection 生命周期
     # ------------------------------------------------------------------
     def ensure_collection(self) -> None:
-        """集合不存在则按契约创建（含 HNSW 索引）。存在则校验维度。
+        """集合不存在则按契约创建（含 HNSW 索引）。存在则校验维度并**确保已加载**。
 
         维度校验的意义：``DIM_NAMES`` 契约演进后（如加维）旧库不重建
         会导致向量错位——宁可让建库脚本显式失败，也不要静默搜出垃圾。
+
+        加载的意义（实测缺陷）：Milvus 的 collection 在**另一个进程写入后**
+        处于 ``released`` 状态（Milvus Lite 与 Standalone 都是如此），此时
+        search/query 会报 ``code=101: call load() before search``。若这里不做
+        load，表现就是"库里有数据但永远搜不到"，且会被上层误判成 search_failed。
         """
         client = self._get_client()
         name = self.cfg.collection
@@ -124,6 +129,7 @@ class MilvusStore:
                             f"既有 collection 维度 {dim} ≠ 契约维度 {DIM}，"
                             "请重建索引（scripts/build_case_index.py --rebuild）",
                         )
+            self._ensure_loaded(client, name)
             self._checked.add(name)
             return
 
@@ -156,7 +162,32 @@ class MilvusStore:
                 "collection_create_failed", f"创建 collection 失败: {exc}"
             ) from exc
         log.info("已创建 collection: %s（dim=%d, HNSW/COSINE）", name, DIM)
+        self._ensure_loaded(client, name)
         self._checked.add(name)
+
+    def _ensure_loaded(self, client: Any, name: str) -> None:
+        """确保 collection 处于 loaded 状态（幂等）。
+
+        为什么要存在这一步：写入进程结束后 collection 会 released，
+        下一个进程只读时若不 load，search 会报 ``code=101``。这里做了
+        三层防御——``get_load_state`` 不可用时也尝试 load（保守好过漏），
+        load 失败则按统一的降级出口抛出 StoreError，绝不静默返回空结果。
+        """
+        try:
+            state = client.get_load_state(name)
+        except Exception:  # noqa: BLE001 — 服务端不支持该 API 时退化为直接 load
+            state = None
+        state_name = str(getattr(state, "state", state) or "").lower()
+        if "loaded" in state_name:
+            return
+        try:
+            client.load_collection(name)
+        except Exception as exc:  # noqa: BLE001
+            raise StoreError(
+                "collection_load_failed",
+                f"加载 collection 失败（{name}）: {exc}",
+            ) from exc
+        log.info("已加载 collection: %s", name)
 
     # ------------------------------------------------------------------
     # 写入 / 检索 / 统计

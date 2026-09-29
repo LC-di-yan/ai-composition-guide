@@ -132,6 +132,31 @@ class CaseSearchService:
             self._store = store
         return self._store
 
+    # ------------------------------------------------------------------
+    def warmup(self) -> bool:
+        """尽早完成"第一次接触 Milvus"。返回是否成功；失败不影响调用方启动。
+
+        为什么必须有这一步（实测结论，见 ``测试与验收.md`` §4.3f）：
+        在 Windows + Milvus Lite 组合下，**若 Milvus 客户端的首次初始化
+        发生在帧处理链路（OpenCV + 感知/评分）之后**，进程会在 milvus_lite
+        的 ``pa.RecordBatch`` 写入路径上触发 SIGSEGV（访问违规）。顺序反过来
+        ——先握手/加载，再跑图像链路——则全程稳定。
+
+        warmup 把"首次接触"钉死在启动阶段：代价是一次握手（连不上就降级，
+        不拖垮启动），收益是消掉这个崩溃窗口。**这只是崩溃规避，不是
+        功能保证**：预训练完后 Milvus 仍不可用时，所有请求照旧走降级链。
+        """
+        try:
+            store = self._store_or_none()
+            if store is None:
+                return False
+            store.ensure_collection()
+        except Exception as exc:  # noqa: BLE001 — 预热失败一律降级，不冒泡
+            log.warning("检索库预热失败（降级，不影响启动）: %s", exc)
+            return False
+        log.info("检索库预热完成: %s", self.cfg.uri)
+        return True
+
     def _safe_index_size(self, store: MilvusStore | None) -> int | None:
         if store is None:
             return None
@@ -243,9 +268,26 @@ class CaseSearchService:
         index_size: int | None = None
         try:
             store = self._store_or_none()
-            if store is not None and pattern_filter is not None:
+            if store is None:
+                # 与 image 路径同一条纪律：存储不可用是**首要原因**，
+                # 不能被 "文本无向量" 这个次级原因盖过去。
+                #
+                # 这段必须写在这里的原因（真实缺陷，第三次踩同一类坑）：
+                # 启动期 warmup() 会先把连接失败记进 _store_failed，因此后续
+                # _store_or_none() 直接返回 None（故意不再重试）。若这里把
+                # None 当成"查无结果"，纯文本请求就会报
+                # text_embedding_unavailable，把"Milvus 根本没起来"这个更严重
+                # 的事实藏掉——由全量套件 test_pure_text_degrades_with_reason
+                # 捕获。相关教训见 测试与验收.md §4.3g。
+                raise StoreError(
+                    self._last_store_reason or "pymilvus_unavailable",
+                    "Milvus 不可用（进程内已判定，不再重试）",
+                )
+            # 库规模与"有没有关键词"无关：连得上就该如实报告，否则响应会在
+            # 无命中时假称"不知道库有多大"。
+            index_size = self._safe_index_size(store)
+            if pattern_filter is not None:
                 results = store.query_scalar(limit=top_k, pattern=pattern_filter)
-                index_size = self._safe_index_size(store)
         except StoreError as exc:
             return CaseSearchOutcome(
                 degraded=True,

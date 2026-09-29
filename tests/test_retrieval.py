@@ -6,9 +6,11 @@
 - 真实连接失败：本机未启动 Milvus 时的 ``connection_failed``（真实路径，
   非 mock——这是"降级承诺"在依赖缺失场景的直接证据）。
 
-真实 Milvus 端到端（建库 + 检索 + 相似度排序）由
-``scripts/build_case_index.py`` + 手动验证完成，不进单元测试套件
-（CI 无 Milvus 服务容器，属已声明的边界，见调研文档 §5）。
+真实 Milvus 端到端（建库 + 检索 + 相似度排序）另有专门的
+``tests/test_retrieval_integration.py``（需 ``AICG_RETRIEVAL_URI``，
+默认跳过）——把"要真库"和"要 mock"的用例分开，是为了不让"CI 绿了"
+这句话失真。下面的 :class:`TestEnsureLoaded` 用假客户端覆盖那些
+**真跑才暴露、但必须常驻 CI** 的加载逻辑。
 """
 
 from __future__ import annotations
@@ -22,6 +24,8 @@ from aicg.retrieval import (
     DIM,
     DIM_NAMES,
     CaseSearchService,
+    MilvusConfig,
+    MilvusStore,
     StoreError,
     features_from_snapshot,
 )
@@ -203,13 +207,40 @@ class TestServiceDegradation:
         assert outcome.index_size == 42
 
     def test_pure_text_without_pattern_hit(self, monkeypatch):
-        """纯文本且无关键词：空结果 + 同样的降级原因（不假装能搜）。"""
+        """纯文本且无关键词：**库是通的**但没有过滤条件 → 空结果 + 降级原因不变。
+
+        这里刻意用**健康的 store**（而不是 None）来隔离被测语义：若把 store
+        设成 None，测到的其实是"存储不可用"那条路径（见上方
+        test_pure_text_store_failure_wins），两者混在一起会让断言说不清在验什么。
+        """
         svc = _make_service()
-        monkeypatch.setattr(svc, "_store_or_none", lambda: None)
+        stub = SimpleNamespace(
+            query_scalar=lambda *, limit, pattern: [],
+            count=lambda: 3,
+        )
+        monkeypatch.setattr(svc, "_store_or_none", lambda: stub)
         outcome = svc.search(query_text="好看的日落", top_k=3)
         assert outcome.degraded is True
         assert outcome.degrade_reason == "text_embedding_unavailable"
         assert outcome.results == []
+        assert outcome.pattern_filter is None
+        assert outcome.index_size == 3
+
+    def test_pure_text_store_failure_wins(self, monkeypatch):
+        """存储不可用优先于 text_embedding_unavailable（真实缺陷回归）。
+
+        若把"store 返回 None"当成查无结果，Milvus 宕机这一更严重的事实会
+        被"文本没有向量"这个次级原因盖住——调用方看到的是错的故障描述。
+        """
+
+        def _store_boom():
+            raise StoreError("connection_failed", "down")
+
+        svc = _make_service()
+        monkeypatch.setattr(svc, "_store_or_none", _store_boom)
+        outcome = svc.search(query_text="三分法", top_k=3)
+        assert outcome.degraded is True
+        assert outcome.degrade_reason == "connection_failed"
 
     def test_no_subject_degrades_before_store(self, monkeypatch):
         """无主体：在碰 Milvus **之前**就拒绝（几何维无真实来源）。"""
@@ -275,3 +306,111 @@ class TestRealConnectionFailure:
         # 第二次直接走降级，不再触碰网络
         outcome = svc.search(image=np.zeros((32, 32, 3), dtype=np.uint8))
         assert outcome.degrade_reason == "connection_failed"
+
+
+class TestEnsureLoaded:
+    """collection 的加载保证——**真跑才暴露的缺陷**，用假客户端常驻 CI。
+
+    缺陷现场：写入进程退出后 collection 处于 ``released``，下一个进程只读时
+    若不做 load，search 报 ``code=101: call load() before search``，表现是
+    "库里有 40 条却永远搜不到"，且会被上层误判成 ``search_failed``。
+    """
+
+    @staticmethod
+    def _store(client, monkeypatch) -> MilvusStore:
+        st = MilvusStore(MilvusConfig(uri="http://stub:19530", collection="cases"))
+        monkeypatch.setattr(st, "_get_client", lambda: client)
+        return st
+
+    @staticmethod
+    def _existing_collection(state="NotLoad", load_impl=None):
+        """构造"集合已存在"的假服务端。``load_impl`` 可注入异常。"""
+        calls: list[str] = []
+
+        class _Client:
+            def has_collection(self, name):
+                return True
+
+            def describe_collection(self, name):
+                return {"fields": [{"name": "vector", "params": {"dim": DIM}}]}
+
+            def get_load_state(self, name):
+                return SimpleNamespace(state=state)
+
+            def load_collection(self, name):
+                calls.append(name)
+                if load_impl is not None:
+                    load_impl(name)
+
+        return _Client(), calls
+
+    def test_loads_collection_when_released(self, monkeypatch):
+        client, calls = self._existing_collection(state="NotLoad")
+        self._store(client, monkeypatch).ensure_collection()
+        assert calls == ["cases"], "released 状态必须触发 load，否则后续检索 code=101"
+
+    def test_skips_load_when_already_loaded(self, monkeypatch):
+        client, calls = self._existing_collection(state="Loaded")
+        self._store(client, monkeypatch).ensure_collection()
+        assert calls == [], "已加载时不应重复 load（多余 RPC）"
+
+    def test_loads_when_load_state_unsupported(self, monkeypatch):
+        """get_load_state 不可用时也要保底 load——保守好过漏。"""
+        client, calls = self._existing_collection(state="NotLoad")
+
+        def _unsupported(name):
+            raise RuntimeError("unsupported by server")
+
+        client.get_load_state = _unsupported  # type: ignore[method-assign]
+        self._store(client, monkeypatch).ensure_collection()
+        assert calls == ["cases"]
+
+    def test_load_failure_is_store_error(self, monkeypatch):
+        """load 失败要落到统一降级出口，而不是静默返回空结果。"""
+        def _boom(name):
+            raise RuntimeError("disk full")
+
+        client, _ = self._existing_collection(load_impl=_boom)
+        with pytest.raises(StoreError) as excinfo:
+            self._store(client, monkeypatch).ensure_collection()
+        assert excinfo.value.reason == "collection_load_failed"
+
+    def test_dimension_mismatch_still_wins(self, monkeypatch):
+        """维度不符优先于 load：宁可不加载，也不能加载一个口径错的库。"""
+
+        class _Client:
+            def has_collection(self, name):
+                return True
+
+            def describe_collection(self, name):
+                return {"fields": [{"name": "vector", "params": {"dim": 512}}]}
+
+            def get_load_state(self, name):
+                raise AssertionError("维度校验应先失败，不应走到 load")
+
+        with pytest.raises(StoreError) as excinfo:
+            self._store(_Client(), monkeypatch).ensure_collection()
+        assert excinfo.value.reason == "dimension_mismatch"
+
+
+class TestWarmup:
+    """启动期预热：把"首次接触 Milvus"钉在帧处理之前（崩溃规避）。"""
+
+    def test_warmup_is_best_effort(self, monkeypatch):
+        """预热失败只返回 False，不抛——启动绝不因连环依赖失败而中断。"""
+        svc = _make_service(**{"retrieval.uri": "http://127.0.0.1:59998"})
+
+        def _raise():
+            raise StoreError("connection_failed", "down")
+
+        monkeypatch.setattr(svc, "_store_or_none", _raise)
+        assert svc.warmup() is False
+
+    def test_warmup_returns_true_with_store(self, monkeypatch):
+        svc = _make_service()
+        monkeypatch.setattr(
+            svc,
+            "_store_or_none",
+            lambda: SimpleNamespace(ensure_collection=lambda: None),
+        )
+        assert svc.warmup() is True
