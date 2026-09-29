@@ -64,17 +64,24 @@ FACTS: list[dict] = [
     {
         "name": "测试通过数",
         "pattern": r"(\d{3})\s*(?:passed|用例通过|用例)",
-        "allowed": {"334"},
-        "why": "唯一当前值。331 是 0.6.0 的历史值。",
-        # CHANGELOG 是**流水账**：历史版本段落里的旧值是正确的，整文放行。
-        # 其余文档（README/测试与验收/开发计划…）必须只写当前值。
-        "exempt_files": {"CHANGELOG.md"},
+        "allowed": {"355"},
+        "why": "唯一当前值（junit-xml 实测：356 收集 - 1 skipped）。\n"
+               "334 是 0.6.2 的历史值（+21 = 新增 retrieval 18 项 + test_api 3 项）。",
+        # 两个豁免文件都是**流水账/历史快照**：其中的旧值是当时的事实，
+        # 改成当前值等于伪造历史。其余文档必须只写当前值。
+        # - CHANGELOG.md：版本流水账
+        # - D-10/D-11 缺陷文档：修复当时的回归测试快照（331 → 334）
+        "exempt_files": {
+            "CHANGELOG.md",
+            "构图指令一致性与防抖闩锁缺陷_D-10_D-11.md",
+        },
     },
     {
         "name": "测试收集总数",
         "pattern": r"(\d{3})\s*项\s*/",
-        "allowed": {"335"},
-        "why": "335 = 334 passed + 1 skipped（junit tests 属性实测）。\n"
+        "allowed": {"356"},
+        "why": "356 = 355 passed + 1 skipped（junit tests 属性实测）。\n"
+               "335 是 0.6.2 的历史值（FR-09 检索层带来 +21 项）。\n"
                "与「测试通过数」是**两个口径**：总数用「N 项 /」后缀，通过数用\n"
                "「N passed / N 用例」后缀——禁止混用（曾因写「335 用例」被抓）。",
         "exempt_files": {"CHANGELOG.md"},
@@ -90,8 +97,14 @@ FACTS: list[dict] = [
     {
         "name": "缺陷文档路径",
         "pattern": r"docs/research/([\w\u4e00-\u9fff\-]+\.md)",
-        "allowed": {"构图指令一致性与防抖闩锁缺陷_D-10_D-11.md", "素材图源调研.md"},
-        "why": "重命名后旧名 `距离建议一致性缺陷_D-10.md` 已作废，出现即为死链。",
+        "allowed": {
+            "构图指令一致性与防抖闩锁缺陷_D-10_D-11.md",
+            "素材图源调研.md",
+            "Milvus本地方案调研.md",
+        },
+        "why": "重命名后旧名 `距离建议一致性缺陷_D-10.md` 已作废，出现即为死链。\n"
+               "新增调研文档必须登记进本集合——否则代码注释里引用它就报死链"
+               "（这正是本门禁的**设计意图**：引用即须存在）。",
         "is_path": True,
     },
 ]
@@ -187,7 +200,11 @@ def scan_facts(files: list[Path]) -> tuple[list[str], dict[str, list[str]]]:
         rel_s = rel.as_posix()
         for fact in FACTS:
             # CHANGELOG 等流水账：历史段旧值合法，整文豁免（但仍统计出现位置）
-            exempt = rel_s in fact.get("exempt_files", set())
+            # 豁免名支持**路径或文件名**两种写法：早期只比完整相对路径，
+            # 导致 docs/research/ 下的文件写了文件名却不生效（CHANGELOG
+            # 因为在根目录才碰巧命中）。任一匹配即可，避免位置耦合。
+            exempt_files = fact.get("exempt_files", set())
+            exempt = rel_s in exempt_files or Path(rel_s).name in exempt_files
             for m in re.finditer(fact["pattern"], text):
                 val = next((g for g in m.groups() if g), None)
                 if val is None:

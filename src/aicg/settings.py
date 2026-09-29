@@ -425,6 +425,40 @@ class ObservabilityConfig(BaseModel):
         return p if p.is_absolute() else (PROJECT_ROOT / p)
 
 
+class RetrievalConfig(BaseModel):
+    """案例检索配置（FR-09）。
+
+    host/port 拆开放是给 docker compose 用的（服务名做 host）；
+    ``uri`` 是 pymilvus 实际消费的完整端点，默认由 host/port 拼接，
+    直接设置 ``uri`` 可整体覆盖（如带鉴权参数的场景）。
+
+    Milvus **不在时检索自动降级**（200 + degraded），因此本配置不存在
+    也完全不影响其余功能——这是 NFR-R1"运行类问题不 5xx"的配置面体现。
+    """
+
+    host: str = "127.0.0.1"
+    port: int = Field(default=19530, gt=0, le=65535)
+    collection: str = "composition_cases"
+    uri: str = ""
+    """完整端点（如 ``http://milvus:19530``）；留空则由 host/port 拼接。"""
+    hnsw_m: int = Field(default=16, ge=4, le=64)
+    ef_construction: int = Field(default=200, ge=8)
+    ef: int = Field(default=64, ge=1)
+    timeout_s: float = Field(default=5.0, gt=0.0)
+
+    @property
+    def resolved_uri(self) -> str:
+        """完整端点。环境变量 ``AICG_RETRIEVAL_URI`` 最高优先——docker
+        compose 里 api 与 milvus 同网络，用服务名做 host（与语言层
+        ``AICG_LLM_BASE_URL`` 的覆盖模式一致）。"""
+        env_uri = os.environ.get("AICG_RETRIEVAL_URI")
+        if env_uri:
+            return env_uri
+        if self.uri:
+            return self.uri
+        return f"http://{self.host}:{self.port}"
+
+
 # --------------------------------------------------------------------------
 # 根配置
 # --------------------------------------------------------------------------
@@ -439,6 +473,7 @@ class Settings(BaseModel):
     language: LanguageConfig = Field(default_factory=LanguageConfig)
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     observability: ObservabilityConfig = Field(default_factory=ObservabilityConfig)
+    retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
 
     # 运行时注入，不来自 yaml
     project_root: Path = Field(default=PROJECT_ROOT, exclude=True)

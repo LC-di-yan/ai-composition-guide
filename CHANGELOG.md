@@ -24,8 +24,10 @@
 ### 计划中
 
 - M4-5 `language/tts.py` 接入真实 TTS 引擎
-- M6 Milvus 案例检索（`retrieval/`，当前 `/v1/cases/search` 返回 501）
-- Docker 一键启动实测
+- **FR-09 真实 Milvus 端到端验证**（代码与单测已落地，等本机 Docker daemon；见 [0.7.0](#070---2026-09-29) 边界）
+- 本机 `docker compose up api milvus` 全链路互通实测
+- CI 侧 Milvus service container
+- INT8 量化前后推理耗时对比
 - INT8 量化前后推理耗时对比
 - 架构图与关键示意图（`docs/assets/`）
 - 演示录屏产出
@@ -36,6 +38,49 @@
 > ✅ **D-10 / D-11 已于 [0.6.1](#061---2026-09-29) 修复**。演示不再出现
 > "该后退却在喊靠近"的指令，Web 页已把该卡片改造成**缺陷复发哨兵**
 > （若再次出现会主动标红告警，而不是当作功能亮点展示）。
+
+---
+
+## [0.7.0] - 2026-09-29
+
+### 新增
+
+- **FR-09 案例检索（`src/aicg/retrieval/`）**
+  - `features.py`：快照 → **8 维可解释构图特征**（`thirds`/`subject_scale`/`balance`/
+    `headroom`/`lead_room`/`saliency_center`/`subject_height`/`center_offset_x`），
+    全部 [0,1]。刻意**不引入 embedding 模型**——复用感知 + 评分器既有产出，
+    零新增依赖、维度可解释（调研文档 §4.1）
+  - `milvus_store.py`：collection 管理（HNSW M=16 / efC=200 / ef=64，度量 COSINE）、
+    upsert / search / query_scalar / count / drop；pymilvus 为**可选依赖**，
+    缺失时导入期不失败
+  - `search.py`：降级链 + `query_text` → pattern 标量过滤
+  - `/v1/cases/search` 从 **501 改为真实实现**（Milvus 不可用时 200 + degraded）
+- `scripts/build_case_index.py`：案例建库（`--dry-run` 不连 Milvus 即可核对特征）
+- `tests/test_retrieval.py`：**18 项**（特征契约 / 文本过滤 / 降级链 / 真实连接失败）
+- `docker/embedEtcd.yaml` + compose 的 `milvus` 服务（v2.5.11 + 数据卷 + healthz）
+- `settings.RetrievalConfig` + `configs/default.yaml` 的 `retrieval` 段 +
+  `AICG_RETRIEVAL_URI` 环境变量（compose 内用服务名）
+
+### 修复
+
+- **降级记忆返回 None 会穿透成 500**（真实缺陷，由 `test_failure_memory_avoids_retry`
+  捕获）：Milvus 首连失败后 `_store_failed` 置位，后续请求拿到 `None` 却仍调用
+  `.search()` → `AttributeError` 未被捕获 → 500。现改为记住 `reason` 并走
+  **同一条 `StoreError` 降级出口**
+- `docker/embedEtcd.yaml` 缺失：compose 挂载了不存在的文件（Docker 会当成空目录
+  挂载 → Milvus 读到空配置启动失败）。由 Docker 静态门禁的挂载源检查抓出
+- 文档门禁 `exempt_files` **只比完整相对路径**，导致 `docs/research/` 下的文件
+  写文件名不生效（CHANGELOG 因在根目录才碰巧命中）→ 改为路径/文件名任一匹配
+
+### 诚实边界（未做/未实测）
+
+- **真实 Milvus 端到端（建库 + 检索 + 相似度排序）未实测**：本机 Docker daemon
+  无法从非交互会话启动（PowerShell `Start-Process`、`cmd start` 均无进程与日志痕迹），
+  需人工双击 Docker Desktop。代码与单测已就绪，daemon 就绪后一步即可验证
+- **rule 后端下 8 维中 2 维退化为常数**：`lead_room`（无人脸 yaw）与
+  `saliency_center`（无显著图时取中性 0.5）恒为 0.500，不携带区分信息；
+  yolo 后端下 8 维全活。这是"零新增模型"决策的明码代价
+- 纯文本检索**不做语义理解**，仅 pattern 标量过滤 + `text_embedding_unavailable`
 
 ---
 

@@ -15,7 +15,8 @@
 ``bad_request`` 400    参数缺失/格式非法（如 image_ref 空）
 ``invalid_image`` 400  图像解码失败
 ``session_not_found`` 404 会话不存在或已过期
-``not_implemented`` 501 功能未实现（如案例检索，Milvus 未接入）
+``not_implemented`` 501 功能未实现（通用兜底；案例检索 M6-2 起已接入，
+Milvus 不可用时返回 200 + ``degraded`` 而非 501）
 ``internal_error`` 500 未预期异常（兜底，正常情况下不应出现）
 ============ ====== ==========================================
 
@@ -278,17 +279,35 @@ def build_router(state: AppState) -> APIRouter:
             "language_ms": outcome.language_ms,
         }
 
-    # ================= API-08 案例检索（Milvus，尚未接入）=================
-    @r.post("/cases/search", summary="案例检索（FR-09，Milvus 待接入）")
-    def case_search(req: CaseSearchRequest) -> JSONResponse:
-        # 诚实返回 501 而非空列表：空列表会让调用方以为"检索到了 0 条"，
-        # 掩盖"功能压根没实现"这一事实。
-        return _error(
-            "not_implemented",
-            "案例检索依赖 Milvus，当前里程碑（M3）尚未接入。"
-            "接口契约已定型，待 M5 阶段接入向量库后启用。",
-            detail={"planned_milestone": "M5", "top_k_requested": req.top_k},
+    # ================= API-08 案例检索（FR-09，Milvus）=================
+    @r.post("/cases/search", summary="案例检索（FR-09，Milvus 向量检索）")
+    def case_search(req: CaseSearchRequest) -> dict[str, Any]:
+        from ..retrieval import VALID_PATTERNS
+
+        # 参数类错误 400（唯一允许 4xx 的路径）；其余一切失败均由
+        # service 转成 200 + degraded（NFR-R1）。
+        if not req.image_ref and not (req.query_text or "").strip():
+            return _error(
+                "bad_request",
+                "image_ref 与 query_text 至少提供一个（以图搜图 / 以文搜图）",
+            )
+        if req.pattern is not None and req.pattern not in VALID_PATTERNS:
+            return _error(
+                "bad_request",
+                f"pattern 取值非法: {req.pattern}，合法值: {sorted(VALID_PATTERNS)}",
+            )
+
+        img = None
+        if req.image_ref:
+            img = _decode_or_400(req.image_ref, state)
+
+        outcome = state.case_search.search(
+            image=img,
+            query_text=req.query_text,
+            top_k=req.top_k,
+            pattern=req.pattern,
         )
+        return outcome.to_response()
 
     return r
 

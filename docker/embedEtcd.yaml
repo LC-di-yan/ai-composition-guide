@@ -1,0 +1,18 @@
+# Milvus 内嵌 etcd 配置（standalone 单容器场景）
+#
+# 来源：Milvus 官方 embedEtcd.yaml，参数含义见
+# docs/research/Milvus本地方案调研.md §3。
+#
+# **为什么必须入库**：docker-compose.yml 把它以 :ro 挂载进容器
+# （`-v ./embedEtcd.yaml:/milvus/configs/embedEtcd.yaml:ro`）。若本文件
+# 缺失，Docker 会把"不存在的源路径"当成**空目录**挂载进去，Milvus 读到
+# 空配置后启动失败——属于"本地忘了建、一上编排就炸"的静默缺陷，
+# 故由 check_docker_static.py 的挂载源存在性检查守护。
+
+listen-client-urls: http://0.0.0.0:2379
+advertise-client-urls: http://0.0.0.0:2379
+# 后端存储配额（4GB）。超过会触发 etcd 的 no space 告警并拒绝写入。
+quota-backend-bytes: 4294967296
+# 按 revision 自动压缩，保留最近 1000 个 revision——避免 etcd 数据无限增长
+auto-compaction-mode: revision
+auto-compaction-retention: "1000"

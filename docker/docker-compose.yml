@@ -13,7 +13,40 @@
 #
 version: "3.9"
 
+volumes:
+  # Milvus 数据卷：etcd 元数据 + 向量段，容器重建不丢库
+  milvus_data: {}
+
 services:
+  # -------------------------------------------------------------------------
+  # Milvus standalone（FR-09 案例检索；单容器内嵌 etcd + 本地存储）
+  # 启动配方来源：docs/research/Milvus本地方案调研.md §3（官方文档原样）
+  # -------------------------------------------------------------------------
+  milvus:
+    image: milvusdb/milvus:v2.5.11
+    container_name: aicg-milvus
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_USE_EMBED: "true"
+      ETCD_DATA_DIR: /var/lib/milvus/etcd
+      ETCD_CONFIG_PATH: /milvus/configs/embedEtcd.yaml
+      COMMON_STORAGETYPE: local
+    volumes:
+      - milvus_data:/var/lib/milvus
+      - ./embedEtcd.yaml:/milvus/configs/embedEtcd.yaml:ro
+    ports:
+      - "19530:19530"   # gRPC（pymilvus）
+      - "9091:9091"     # healthz / metrics
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    restart: unless-stopped
+
   # -------------------------------------------------------------------------
   # CPU 版 API 服务（默认）
   # -------------------------------------------------------------------------
@@ -34,6 +67,9 @@ services:
       # 不配置则自动走模板兜底，流程不受影响（NFR-E3 / NFR-R1）
       AICG_VLM_API_KEY: "${AICG_VLM_API_KEY:-}"
       AICG_VLM_BASE_URL: "${AICG_VLM_BASE_URL:-}"
+      # --- 案例检索（FR-09）---
+      # compose 网络内用服务名；milvus 未起时检索接口 200 + degraded
+      AICG_RETRIEVAL_URI: "http://milvus:19530"
     volumes:
       # 产物持久化（容器内为只读代码，仅挂可写目录）
       - ../outputs:/app/outputs
@@ -89,6 +125,7 @@ services:
       AICG_LOG_LEVEL: "INFO"
       AICG_DEVICE: "cuda"
       AICG_VLM_API_KEY: "${AICG_VLM_API_KEY:-}"
+      AICG_RETRIEVAL_URI: "http://milvus:19530"
     volumes:
       - ../outputs:/app/outputs
       - ../models:/app/models:ro

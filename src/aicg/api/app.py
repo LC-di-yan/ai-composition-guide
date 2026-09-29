@@ -50,6 +50,7 @@ class AppState:
         self._postshot = None
         self._subject_pipeline = None
         self._calibration_pipeline = None
+        self._case_search = None
 
     # --- 惰性构建：避免导入 app 即触发权重加载（拖慢启动、妨碍测试）---
     @property
@@ -90,6 +91,19 @@ class AppState:
 
             self._calibration_pipeline = CalibrationPipeline(self.perception, self.settings)
         return self._calibration_pipeline
+
+    @property
+    def case_search(self):
+        """案例检索服务（FR-09）。惰性：不触发感知后端加载，连 Milvus
+        失败也延迟到首次请求才暴露（然后走 200 + degraded）。"""
+        if self._case_search is None:
+            from ..retrieval import CaseSearchService
+
+            self._case_search = CaseSearchService(
+                self.settings,
+                processor_getter=lambda: self.processor,
+            )
+        return self._case_search
 
 
 def _cors_origins(settings: Settings) -> list[str]:

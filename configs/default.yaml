@@ -176,6 +176,21 @@ postprocess:
   retouch:
     enabled: false
 
+# === 案例检索（FR-09 / M6-2）===
+retrieval:
+  # Milvus standalone 端点。docker compose 内用服务名 milvus；
+  # 本机裸跑默认 127.0.0.1。
+  host: 127.0.0.1
+  port: 19530
+  collection: composition_cases
+  # HNSW 参数：案例库 ≤ 数百条的精度-延迟平衡点（调研文档 §4.3）
+  hnsw_m: 16
+  ef_construction: 200
+  ef: 64
+  # pymilvus 单次操作超时（s）。检索是低频接口，超时不应拖垮响应——
+  # 超时后走 200 + degraded（connection_failed）。
+  timeout_s: 5.0
+
 # === 可观测性（NFR-O4）===
 observability:
   # 是否记录分阶段耗时

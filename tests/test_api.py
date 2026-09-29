@@ -529,15 +529,52 @@ class TestShotReport:
 
 # ======================================================================
 class TestCaseSearch:
-    """API-08 案例检索（Milvus 未接入）。"""
+    """API-08 案例检索（FR-09，M6-2 已接入）。
 
-    def test_returns_501_not_empty_list(self, client):
-        """必须是 501，不能是空列表——空列表会掩盖"功能未实现"。"""
+    测试环境**没有 Milvus**——这恰恰是降级契约的最佳实测条件：
+    所有失败都必须表现为 200 + degraded，绝不 5xx（NFR-R1）。
+    真实 Milvus 的端到端验证见 scripts/build_case_index.py 记录。
+    """
+
+    def test_param_error_when_both_empty(self, client):
+        """image_ref 与 query_text 都缺 → 400（参数类错误，非降级）。"""
+        r = client.post("/v1/cases/search", json={"top_k": 3})
+        assert r.status_code == 400
+        assert r.json()["error"]["code"] == "bad_request"
+
+    def test_param_error_when_pattern_invalid(self, client):
+        """pattern 取值非法 → 400。"""
+        r = client.post(
+            "/v1/cases/search", json={"query_text": "咖啡馆", "pattern": "golden_ratio"}
+        )
+        assert r.status_code == 400
+        assert "pattern" in r.json()["error"]["message"]
+
+    def test_pure_text_degrades_with_reason(self, client):
+        """纯文本检索：Milvus 不在时 200 + degraded + connection_failed。
+
+        注意原因枚举的次序：本环境连不上 Milvus，因此降级原因是
+        connection_failed（连接层先失败）；text_embedding_unavailable
+        仅在 Milvus 可用时出现（见 test_retrieval.py 的 stub 测试）。
+        """
         r = client.post("/v1/cases/search", json={"query_text": "三分法", "top_k": 3})
-        assert r.status_code == 501
-        b = r.json()["error"]
-        assert b["code"] == "not_implemented"
-        assert b["detail"]["planned_milestone"] == "M5"
+        assert r.status_code == 200
+        b = r.json()
+        assert b["degraded"] is True
+        assert b["degrade_reason"] in ("connection_failed", "pymilvus_unavailable")
+
+    def test_image_search_degrades_when_milvus_down(self, client):
+        """有图但 Milvus 不在 → 200 + degraded，绝不 5xx。"""
+        r = client.post("/v1/cases/search", json={"image_ref": FIXTURE, "top_k": 2})
+        assert r.status_code == 200
+        b = r.json()
+        assert b["degraded"] is True
+        assert b["degrade_reason"] in ("connection_failed", "pymilvus_unavailable")
+        assert b["results"] == []
+
+    # 注：``no_subject`` 降级不在此处测——rule 后端对平坦图也会兜底检出
+    # 主体（启发式特性），该路径仅 yolo 后端真实可达。service 层用
+    # mock 快照覆盖（见 test_retrieval.py::TestServiceDegradation）。
 
 
 # ======================================================================
