@@ -1,0 +1,186 @@
+# AICG 默认配置
+# 对应需求：NFR-M2（配置外置，禁止硬编码）
+# 对应文档：《技术方案.md》§3 关键工程约束
+#
+# 说明：所有阈值与权重集中在此，代码中不得出现魔法数字。
+# 标注 [待确认] 的项为尚未最终定型的参数，需在 M5 阶段实测调参后回填。
+
+app:
+  name: aicg
+  env: dev
+  log_level: INFO
+
+# === 帧源与实时性 ===
+pipeline:
+  # 送 AI 推理的帧率上限（FR-05 / NFR-P3：1~5 FPS）
+  target_fps: 3.0
+  # 送入模型前的降采样宽度（px），保持长宽比
+  frame_downsample_width: 480
+  # 单帧推理超时（ms），超时即走降级 [待确认]
+  frame_timeout_ms: 2000
+
+# === 感知层 ===
+perception:
+  # 优先使用的后端：yolo | rule | auto
+  # auto = 权重存在则用 yolo，否则降级 rule
+  backend: auto
+  detector:
+    # YOLO 权重路径（相对项目根目录）
+    weights: models/yolov8n-seg.pt
+    # 推理设备：cuda | cpu | auto
+    device: auto
+    conf_threshold: 0.35
+    iou_threshold: 0.45
+    # 关注的主体类别（COCO 类名），用于主体选择
+    subject_labels: [person, dog, cat, bird, horse]
+    # 主体选择时优先考虑人
+    prefer_person: true
+  saliency:
+    # 显著性图计算尺寸（px），越小越快
+    work_size: 160
+
+# === 构图决策层 ===
+composition:
+  # 候选框搜索（FR-03）
+  candidate:
+    # 覆盖率范围：候选框占原图的比例区间。
+    # 下限 0.10 允许"更松的景别"（主体小、环境多）；若设得过高（如 0.36），
+    # 当主体本身已占画面大半时会没有可用候选，引导退化为单一方案。
+    min_area_ratio: 0.10
+    max_area_ratio: 0.99
+    # 在宽度/高度方向的采样数量（grid search）
+    grid_x: 9
+    grid_y: 7
+    # 候选框最小宽高比 / 最大宽高比（需同时容纳竖幅与横幅）
+    min_aspect: 0.55
+    max_aspect: 1.80
+    # 保留的候选数量上限（护住单帧时延 NFR-P1）
+    top_k: 5
+  # 评分权重（各子项加权求和）
+  #
+  # [权重修订记录 2026-09-28] 原权重为
+  #   thirds .34 / balance .20 / headroom .18 / lead_room .14 / saliency .14
+  # 与人工标注做 SRCC 相关性时得 0.0000，排查发现两处真实缺陷：
+  #   (1) balance / headroom 以 candidate_bbox 为参照系，评估"当前构图"
+  #       时 subject==candidate，两个分项被恒定置零（合计权重 .38 失效）；
+  #   (2) 评分体系缺失"主体占比"维度，导致"主体过小的远景"与"饱满半身"
+  #       同分，评分器无法服务 FR-01 的距离建议主线。
+  # 修复 (1) 并新增 subject_scale 后，同一标注集 SRCC 升至 +0.8000。
+  scoring:
+    weight_rule_of_thirds: 0.30
+    weight_balance: 0.18
+    weight_headroom: 0.16
+    weight_lead_room: 0.12
+    weight_saliency_center: 0.12
+    # 主体占比：新增维度，直接对应 FR-01"主体太小→该走近"
+    weight_subject_scale: 0.22
+    # 一般越靠近三分点越好，容差（归一化）
+    thirds_tolerance: 0.10
+    # 主体框与候选框中心对齐的容差（归一化）
+    subject_center_tolerance: 0.22
+    # 头顶留白理想比例（占参照画面高度）
+    ideal_headroom_ratio: 0.12
+    # 理想主体高度占比（大致对应"半身"景别），见 rules.subject_scale_score
+    #
+    # [D-10 修复 2026-09-29] 本值是**「理想构图」的唯一真源**。
+    # 此前差分层另有硬编码 0.68、距离层另有 ideal_distance_m=2.6（反推约
+    # 0.71），三处口径互相矛盾，导致差分层 hold 窗口窄到 0.60~0.76，
+    # 而真实人像素材占高普遍在 0.30~0.60 —— move_closer 变成了默认输出，
+    # 且同帧内距离层说"太近请后退"、差分层却喊"靠近"，自相矛盾。
+    # 现在差分层由本值派生（FrameProcessor 注入），不再有第二份定义。
+    ideal_subject_height: 0.55
+    # 占比容差，以 ideal_subject_height 的**相对比例**表达。
+    # 0.15 → 允许占高落在 0.4675 ~ 0.6325 视为"距离已合适"
+    #（反推约 2.9~4.3m，落在下方距离区间内）。
+    # 为什么用相对比例而非绝对值：理想占比从 0.68 降到 0.55 后，若沿用
+    # 绝对容差 0.08，容差占比会从 12% 放大到 26%，等于取消了容差。
+    occupancy_tolerance_ratio: 0.15
+  # 距离估算（FR-01）
+  distance:
+    # 人体真实高度假设值（m）[待确认：应按机型与拍摄对象标定；
+    # 儿童、坐姿、半身入镜场景会显著偏离此值]
+    assumed_person_height_m: 1.65
+    # 等效焦距（35mm 全画幅口径，mm）
+    focal_constant: 26.0
+    # 全画幅高度（mm），与等效焦距配对用于推导垂直视角
+    sensor_height_mm: 24.0
+    # 建议距离区间（m）[待确认：是否按景别动态]
+    #
+    # 约束（实测校准）：本实现的「等效视角」公式在默认参数下存在硬下界
+    # 约 1.79m（框高占比 = 1.0 时），因此 min_distance_m 必须 > 1.79，
+    # 否则"距离太近"分支永不可达。配置加载时会校验区间有序性。
+    min_distance_m: 2.0
+    max_distance_m: 5.0
+    # 理想距离（m），用于计算 position_ratio。
+    #
+    # [D-10 修复 2026-09-29] 本值**仅用于距离滑条的归位点**，不再是"理想
+    # 构图"的定义（那是 ideal_subject_height 的职责）。它不参与动作决策，
+    # 因此与占高口径不同也不会产生矛盾建议。须落在区间内。
+    ideal_distance_m: 2.6
+
+# === 防抖层（FR-06）===
+stabilization:
+  ema:
+    enabled: true
+    # EMA 平滑系数 α，越小越平滑但越迟钝 [待确认：需实测调参]
+    alpha: 0.35
+  debounce:
+    enabled: true
+    # 连续 N 帧输出同一动作才允许切换 [待确认]
+    required_consecutive_frames: 3
+    # 最小切换间隔（ms），期间不重复改口 [待确认]
+    min_interval_ms: 1500
+
+# === 语言层（FR-07 / FR-08）===
+language:
+  # 提供方：mock | keypool | openai | dashscope
+  #
+  # [M4 选型决策 2026-09-28] 默认由 mock 改为 keypool：
+  #   - keypool 是在本机 8790 端口运行的 OpenAI 兼容代理，已把 27 把
+  #     第三方密钥池化（轮询 + 429 冷却 + 预算制选号）。
+  #   - 选它的**核心理由**：本项目因此**不需要持有或读取任何真实密钥**，
+  #     也就不存在"密钥被写进代码/配置/版本库"的风险（NFR-S1）。
+  #   - 代价：依赖本机 keypool 进程存活。若未启动，语言层自动退回模板兜底
+  #     并在结果中标记 is_fallback=True，流程不中断。
+  #   - 若需完全离线可跑（如 CI），把 provider 改回 "mock" 即可。
+  provider: keypool
+  # 留空 = 由 model_registry 按角色自动选型（推荐）。
+  # 填写则强制使用该模型、跳过链路降级。可选项与选型理由见
+  # src/aicg/language/model_registry.py。
+  model: ""
+  base_url: ""
+  api_key_env: AICG_VLM_API_KEY
+  # keypool 目录留空 = 自动探测（桌面/keypool）。也可用环境变量
+  # AICG_KEYPOOL_DIR 指定，或在部署环境直接用 AICG_LLM_BASE_URL。
+  keypool_dir: ""
+  # 调用超时（s）。glm-5.3 属重推理模型，实测单次约 6s，
+  # 取 60s 留出充分余量（它本就不在每帧热路径上）。
+  timeout_s: 60
+  # 单次拍摄语言层最大调用次数（成本控制，NFR-E3）
+  max_calls_per_session: 20
+  temperature: 0.7
+  # 语言层的 max_tokens **只是一个上限意图**，不是最终发给模型的值。
+  # [D-08 token 预算陷阱 2026-09-28] 本环境的模型是重推理的：
+  #   glm-5.3 实测 completion 中 94~98% 是 reasoning_tokens，正文仅 32~45 字；
+  #   且延迟对预算极敏感（2048→6.6s，3000→12.9s，4096→49.5s）。
+  #   预算太小（如 512）还会让正文被推理挤空、finish_reason=length。
+  # 因此实际值由 model_registry.budget_for(model, max_tokens) 逐模型夹到
+  # 实测"甜区"（glm-5.3 为 1536~2048，deepseek-flash 为 1024~1536）。
+  # 这里写 2048 = glm-5.3 的上界，其余模型会被自动下调。
+  max_tokens: 2048
+
+# === 后处理层（FR-08 / FR-11）===
+postprocess:
+  filter:
+    enabled: true
+  retouch:
+    enabled: false
+
+# === 可观测性（NFR-O4）===
+observability:
+  # 是否记录分阶段耗时
+  latency_tracking: true
+  # 延迟统计滑动窗口大小
+  latency_window: 300
+  # 指标报告输出目录
+  report_dir: outputs/reports

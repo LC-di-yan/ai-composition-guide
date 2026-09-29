@@ -1,0 +1,32 @@
+# AI 实时构图指导 Agent —— 精确依赖锁（lock）
+#
+# 生成方式：pip freeze 交叉过滤，只保留 requirements.txt 中的**直接依赖**
+# 生成环境：Python 3.12.8 / Windows / RTX 4050 Laptop GPU
+# 生成时间：2026-09-28
+#
+# 用途：
+#   - requirements.txt 是"下限锁定"（>=），适合开发；
+#   - 本文件是"精确锁定"（==），用于**复现实验指标**（NFR-O3）。
+#     指标类结论（延迟 / 抖动 / SRCC）必须记录 lock 版本，否则不可复现。
+#
+# 重新生成：
+#   pip freeze | grep -iF -f <(grep -oE '^[A-Za-z0-9_.-]+' requirements.txt) > requirements.lock.txt
+#
+# 未在本机环境解析到的依赖（如需请手工补齐）：
+
+PyYAML==6.0.3
+fastapi==0.115.6
+httpx==0.28.1
+loguru==0.7.3
+matplotlib==3.10.9
+numpy==2.4.4
+openai==2.48.0
+opencv-python==4.10.0.84
+pydantic==2.13.4
+pytest-cov==5.0.0
+pytest==8.4.2
+python-multipart==0.0.32
+scikit-learn==1.8.0
+scipy==1.17.1
+ultralytics==8.4.164
+uvicorn==0.48.0

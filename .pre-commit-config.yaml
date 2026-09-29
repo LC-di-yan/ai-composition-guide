@@ -1,0 +1,50 @@
+# AI 实时构图指导 Agent —— pre-commit 钩子
+#
+# ⚠️ 前置条件（当前未满足，启用前必读）：
+#   1. 本项目**尚未 `git init`**。pre-commit 依赖 git 钩子机制，
+#      没有仓库时这套配置是**不生效的死配置**。
+#   2. 启用步骤：
+#        git init
+#        pip install pre-commit
+#        pre-commit install
+#      之后每次 `git commit` 会自动先跑下面的静态门禁。
+#
+# 设计取舍：
+#   * 只挂「秒级、零依赖」的本地脚本门禁 —— 文档口径 / Docker 编排 / CI 工作流。
+#     分钟级的 pytest 与验收报告不进 pre-commit（阻塞提交太久），交给 CI
+#     （.github/workflows/ci.yml）。
+#   * 三个脚本刻意只用标准库，所以这里用 `repo: local` 直接调
+#     `python scripts/xxx.py`，不需要从远程仓库拉取任何东西 ——
+#     离线机器上也能完整工作。
+#   * files 限定：文档口径门禁其实全仓都要跑（它管的是跨文档一致性），
+#     因此不设 files 过滤；Docker/CI 门禁只在相关文件变化时跑，省时间。
+
+repos:
+  # ------------------------------------------------------------------
+  # 本项目静态门禁（零依赖、秒级）
+  # 刻意不引入任何远程 repo（如 pre-commit-hooks）：那需要联网拉取，
+  # 且我无法逐个核实第三方 hook id 的准确性 —— 宁可只留确定无误的
+  # 三个本地门禁。通用卫生（行尾空白等）交给编辑器与 CI。
+  # ------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: doc-consistency
+        name: 文档口径一致性（死链 + 易漂移事实）
+        entry: python scripts/check_doc_consistency.py
+        language: system
+        pass_filenames: false
+        types_or: [markdown, python, yaml, html]
+
+      - id: docker-static
+        name: Docker 编排静态校验
+        entry: python scripts/check_docker_static.py
+        language: system
+        pass_filenames: false
+        files: ^(docker/.*|Dockerfile.*|\.dockerignore)$
+
+      - id: ci-static
+        name: CI 工作流静态校验
+        entry: python scripts/check_ci_static.py
+        language: system
+        pass_filenames: false
+        files: ^\.github/workflows/.*

@@ -1,0 +1,1049 @@
+{
+  "source_note": "【原则驱动标注，非主观人工评分】素材为 48 张真实拍摄照片，经 Lorem Picsum 取自 Unsplash（作者与原始照片页见 configs/eval/images_real/PROVENANCE.md，许可见 https://unsplash.com/license）。标注分由四条可复述的构图学原则独立计算得出：三分点对齐(0.30)、头顶留白适中(0.25)、主体占比合理(0.30)、画面平衡(0.15)。关键点：该原则实现与评分器 src/aicg/composition/rules.py 是**独立重写**的——不共享代码、不共享权重、曲线形状亦不同（如主体占比用单峰而非单调递增），因此两边同向与否具备验证意义。本标注**不代表真人审美偏好**，它回答的是「评分器是否与构图学原则同向」。",
+  "annotation_method": "principle_based",
+  "is_subjective_human_rating": false,
+  "annotation_date": "2026-09-28",
+  "principles": {
+    "thirds_alignment": 0.3,
+    "headroom": 0.25,
+    "subject_scale": 0.3,
+    "balance": 0.15
+  },
+  "known_limitation": "【必须与 SRCC 数值同时阅读的局限】(1) 原则分 ≠ 人类审美偏好：原则会对「主体小但有环境交代」这类纪实性构图系统性扣分，而真人可能给高分，因此本 SRCC 只能支撑「与构图学原则同向」，不能支撑「符合人类审美」。要后者需多人主观标注（2-3 人独立打分并报告一致性），本项目尚未完成。(2) 素材取自 Picsum 的通用图库feed 而非人像摄影专题集，题材混杂，且人像只是其中一部分；部分画面含多人/动物，主体选择由 prefers_person 规则决定，可能与拍摄者意图不一致。(3) 筛图阶段以 YOLO 能否检出 person 为准，因此**无人/检不出人的画面被排除**，评测集在「主体清晰度」上有正向选择偏差。(4) 标注为单一评分者（即本脚本），未做多人一致性检验。",
+  "items": [
+    {
+      "image": "configs\\eval\\images_real\\p304.jpg",
+      "human_score": 84.0,
+      "principle_detail": {
+        "thirds": 0.882,
+        "headroom": 0.6,
+        "scale": 0.918,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0023,
+        0.0,
+        0.5799,
+        0.6731
+      ],
+      "area_ratio": 0.3887,
+      "detector_confidence": 0.814,
+      "author": "Drew Patrick Miller",
+      "unsplash_url": "https://unsplash.com/photos/_o6AAx9dl_Y",
+      "note": "主体中心(0.29,0.34)，高度占比0.67；原则分项 thirds=0.882 headroom=0.6 scale=0.918 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p874.jpg",
+      "human_score": 78.4,
+      "principle_detail": {
+        "thirds": 0.72,
+        "headroom": 0.556,
+        "scale": 0.931,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.1559,
+        0.2532,
+        0.6131,
+        0.9067
+      ],
+      "area_ratio": 0.2988,
+      "detector_confidence": 0.604,
+      "author": "Christopher Campbell",
+      "unsplash_url": "https://unsplash.com/photos/Cp-LUHPRpWM",
+      "note": "主体中心(0.38,0.58)，高度占比0.65；原则分项 thirds=0.72 headroom=0.556 scale=0.931 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p338.jpg",
+      "human_score": 75.7,
+      "principle_detail": {
+        "thirds": 0.896,
+        "headroom": 0.224,
+        "scale": 0.942,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4977,
+        0.3528,
+        0.761,
+        0.9898
+      ],
+      "area_ratio": 0.1677,
+      "detector_confidence": 0.914,
+      "author": "Patryk Sobczak",
+      "unsplash_url": "https://unsplash.com/photos/9VPtNW84vGI",
+      "note": "主体中心(0.63,0.67)，高度占比0.64；原则分项 thirds=0.896 headroom=0.224 scale=0.942 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p455.jpg",
+      "human_score": 75.4,
+      "principle_detail": {
+        "thirds": 0.539,
+        "headroom": 0.604,
+        "scale": 0.971,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4022,
+        0.0011,
+        0.6069,
+        0.5947
+      ],
+      "area_ratio": 0.1216,
+      "detector_confidence": 0.873,
+      "author": "Amanda Sandlin",
+      "unsplash_url": "https://unsplash.com/photos/4F1ijaoCTlg",
+      "note": "主体中心(0.50,0.30)，高度占比0.59；原则分项 thirds=0.539 headroom=0.604 scale=0.971 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p129.jpg",
+      "human_score": 74.8,
+      "principle_detail": {
+        "thirds": 0.76,
+        "headroom": 0.285,
+        "scale": 0.996,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.6365,
+        0.3345,
+        0.8313,
+        0.89
+      ],
+      "area_ratio": 0.1082,
+      "detector_confidence": 0.616,
+      "author": "Charlie Foster",
+      "unsplash_url": "https://unsplash.com/photos/A88emaZe7d8",
+      "note": "主体中心(0.73,0.61)，高度占比0.56；原则分项 thirds=0.76 headroom=0.285 scale=0.996 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p646.jpg",
+      "human_score": 73.8,
+      "principle_detail": {
+        "thirds": 0.514,
+        "headroom": 0.951,
+        "scale": 0.777,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.345,
+        0.1052,
+        0.7329,
+        0.9893
+      ],
+      "area_ratio": 0.343,
+      "detector_confidence": 0.906,
+      "author": "Morgan Sessions",
+      "unsplash_url": "https://unsplash.com/photos/TS2UKluECVE",
+      "note": "主体中心(0.54,0.55)，高度占比0.88；原则分项 thirds=0.514 headroom=0.951 scale=0.777 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p281.jpg",
+      "human_score": 73.3,
+      "principle_detail": {
+        "thirds": 0.779,
+        "headroom": 0.741,
+        "scale": 0.548,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3228,
+        0.1977,
+        0.502,
+        0.4892
+      ],
+      "area_ratio": 0.0522,
+      "detector_confidence": 0.897,
+      "author": "Victor Erixon",
+      "unsplash_url": "https://unsplash.com/photos/_poRbNNfcE8",
+      "note": "主体中心(0.41,0.34)，高度占比0.29；原则分项 thirds=0.779 headroom=0.741 scale=0.548 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p777.jpg",
+      "human_score": 72.3,
+      "principle_detail": {
+        "thirds": 0.451,
+        "headroom": 0.802,
+        "scale": 0.915,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2473,
+        0.1794,
+        0.679,
+        0.8562
+      ],
+      "area_ratio": 0.2923,
+      "detector_confidence": 0.894,
+      "author": "Julia Caesar",
+      "unsplash_url": "https://unsplash.com/photos/DpoMKEARZe4",
+      "note": "主体中心(0.46,0.52)，高度占比0.68；原则分项 thirds=0.451 headroom=0.802 scale=0.915 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p473.jpg",
+      "human_score": 70.7,
+      "principle_detail": {
+        "thirds": 0.599,
+        "headroom": 0.6,
+        "scale": 0.757,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2884,
+        0.0,
+        0.5276,
+        0.9141
+      ],
+      "area_ratio": 0.2186,
+      "detector_confidence": 0.908,
+      "author": "Todd Quackenbush",
+      "unsplash_url": "https://unsplash.com/photos/Nk5rSNq13sM",
+      "note": "主体中心(0.41,0.46)，高度占比0.91；原则分项 thirds=0.599 headroom=0.6 scale=0.757 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p325.jpg",
+      "human_score": 70.3,
+      "principle_detail": {
+        "thirds": 0.572,
+        "headroom": 0.604,
+        "scale": 0.77,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3075,
+        0.0012,
+        0.5626,
+        0.8969
+      ],
+      "area_ratio": 0.2285,
+      "detector_confidence": 0.915,
+      "author": "Dominik Martin",
+      "unsplash_url": "https://unsplash.com/photos/vf29T22259I",
+      "note": "主体中心(0.44,0.45)，高度占比0.90；原则分项 thirds=0.572 headroom=0.604 scale=0.77 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p816.jpg",
+      "human_score": 69.8,
+      "principle_detail": {
+        "thirds": 0.837,
+        "headroom": 0.0,
+        "scale": 0.991,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.398,
+        0.4432,
+        1.0,
+        0.9883
+      ],
+      "area_ratio": 0.3281,
+      "detector_confidence": 0.932,
+      "author": "Jordan McQueen",
+      "unsplash_url": "https://unsplash.com/photos/1eWaod96d3k",
+      "note": "主体中心(0.70,0.72)，高度占比0.55；原则分项 thirds=0.837 headroom=0.0 scale=0.991 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p782.jpg",
+      "human_score": 69.2,
+      "principle_detail": {
+        "thirds": 0.706,
+        "headroom": 0.262,
+        "scale": 0.883,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2961,
+        0.3414,
+        0.4998,
+        0.8245
+      ],
+      "area_ratio": 0.0984,
+      "detector_confidence": 0.881,
+      "author": "Stefan Kunze",
+      "unsplash_url": "https://unsplash.com/photos/oLdm7mnhDic",
+      "note": "主体中心(0.40,0.58)，高度占比0.48；原则分项 thirds=0.706 headroom=0.262 scale=0.883 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p604.jpg",
+      "human_score": 68.5,
+      "principle_detail": {
+        "thirds": 0.567,
+        "headroom": 0.6,
+        "scale": 0.716,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0438,
+        0.0,
+        0.5797,
+        0.9757
+      ],
+      "area_ratio": 0.5228,
+      "detector_confidence": 0.765,
+      "author": "Chelsea Francis",
+      "unsplash_url": "https://unsplash.com/photos/xVHr4B1WApk",
+      "note": "主体中心(0.31,0.49)，高度占比0.98；原则分项 thirds=0.567 headroom=0.6 scale=0.716 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p27.jpg",
+      "human_score": 67.8,
+      "principle_detail": {
+        "thirds": 0.542,
+        "headroom": 0.841,
+        "scale": 0.762,
+        "balance": 0.506,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.1324,
+        0.1678,
+        0.2153,
+        0.5819
+      ],
+      "area_ratio": 0.0343,
+      "detector_confidence": 0.91,
+      "author": "Yoni Kaplan-Nadel",
+      "unsplash_url": "https://unsplash.com/photos/iJnZwLBOB1I",
+      "note": "主体中心(0.17,0.37)，高度占比0.41；原则分项 thirds=0.542 headroom=0.841 scale=0.762 balance=0.506"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p237.jpg",
+      "human_score": 66.5,
+      "principle_detail": {
+        "thirds": 0.441,
+        "headroom": 0.786,
+        "scale": 0.746,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.209,
+        0.0559,
+        0.736,
+        0.9866
+      ],
+      "area_ratio": 0.4905,
+      "detector_confidence": 0.924,
+      "author": "André Spieker",
+      "unsplash_url": "https://unsplash.com/photos/8wTPqxlnKM4",
+      "note": "主体中心(0.47,0.52)，高度占比0.93；原则分项 thirds=0.441 headroom=0.786 scale=0.746 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p342.jpg",
+      "human_score": 66.4,
+      "principle_detail": {
+        "thirds": 0.637,
+        "headroom": 0.141,
+        "scale": 0.957,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3187,
+        0.3777,
+        0.7561,
+        0.9918
+      ],
+      "area_ratio": 0.2686,
+      "detector_confidence": 0.894,
+      "author": "Steven Lewis",
+      "unsplash_url": "https://unsplash.com/photos/r4He4Btlsro",
+      "note": "主体中心(0.54,0.68)，高度占比0.61；原则分项 thirds=0.637 headroom=0.141 scale=0.957 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p821.jpg",
+      "human_score": 66.0,
+      "principle_detail": {
+        "thirds": 0.557,
+        "headroom": 0.249,
+        "scale": 0.936,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3745,
+        0.3453,
+        0.6397,
+        0.9915
+      ],
+      "area_ratio": 0.1714,
+      "detector_confidence": 0.834,
+      "author": "Eutah Mizushima",
+      "unsplash_url": "https://unsplash.com/photos/2TlAsvhqiL0",
+      "note": "主体中心(0.51,0.67)，高度占比0.65；原则分项 thirds=0.557 headroom=0.249 scale=0.936 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p823.jpg",
+      "human_score": 65.6,
+      "principle_detail": {
+        "thirds": 0.436,
+        "headroom": 0.765,
+        "scale": 0.74,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2664,
+        0.0494,
+        0.7864,
+        0.9899
+      ],
+      "area_ratio": 0.4891,
+      "detector_confidence": 0.928,
+      "author": "Benjamin Combs",
+      "unsplash_url": "https://unsplash.com/photos/hiAdjnXZxl8",
+      "note": "主体中心(0.53,0.52)，高度占比0.94；原则分项 thirds=0.436 headroom=0.765 scale=0.74 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p395.jpg",
+      "human_score": 64.2,
+      "principle_detail": {
+        "thirds": 0.668,
+        "headroom": 0.242,
+        "scale": 0.936,
+        "balance": 0.667,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0876,
+        0.3475,
+        0.3399,
+        0.994
+      ],
+      "area_ratio": 0.1631,
+      "detector_confidence": 0.927,
+      "author": "Dogancan Ozturan",
+      "unsplash_url": "https://unsplash.com/photos/94taEmdowRw",
+      "note": "主体中心(0.21,0.67)，高度占比0.65；原则分项 thirds=0.668 headroom=0.242 scale=0.936 balance=0.667"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p660.jpg",
+      "human_score": 62.3,
+      "principle_detail": {
+        "thirds": 0.479,
+        "headroom": 0.607,
+        "scale": 0.715,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2533,
+        0.0022,
+        0.8754,
+        0.979
+      ],
+      "area_ratio": 0.6077,
+      "detector_confidence": 0.926,
+      "author": "Morgan Sessions",
+      "unsplash_url": "https://unsplash.com/photos/YIN4xUBaqnk",
+      "note": "主体中心(0.56,0.49)，高度占比0.98；原则分项 thirds=0.479 headroom=0.607 scale=0.715 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p770.jpg",
+      "human_score": 62.2,
+      "principle_detail": {
+        "thirds": 0.716,
+        "headroom": 0.411,
+        "scale": 0.513,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2513,
+        0.2966,
+        0.366,
+        0.5685
+      ],
+      "area_ratio": 0.0312,
+      "detector_confidence": 0.926,
+      "author": "Joshua Earle",
+      "unsplash_url": "https://unsplash.com/photos/s00F6-W_OQ8",
+      "note": "主体中心(0.31,0.43)，高度占比0.27；原则分项 thirds=0.716 headroom=0.411 scale=0.513 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p837.jpg",
+      "human_score": 62.1,
+      "principle_detail": {
+        "thirds": 0.473,
+        "headroom": 0.6,
+        "scale": 0.723,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.1597,
+        0.0,
+        0.9396,
+        0.9655
+      ],
+      "area_ratio": 0.753,
+      "detector_confidence": 0.89,
+      "author": "Yamon  Figurs",
+      "unsplash_url": "https://unsplash.com/photos/2zlxFmByClI",
+      "note": "主体中心(0.55,0.48)，高度占比0.97；原则分项 thirds=0.473 headroom=0.6 scale=0.723 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p454.jpg",
+      "human_score": 61.7,
+      "principle_detail": {
+        "thirds": 0.448,
+        "headroom": 0.625,
+        "scale": 0.713,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0101,
+        0.0075,
+        0.8798,
+        0.9877
+      ],
+      "area_ratio": 0.8525,
+      "detector_confidence": 0.64,
+      "author": "Mia Domenico",
+      "unsplash_url": "https://unsplash.com/photos/1z1F5Qc30Bs",
+      "note": "主体中心(0.44,0.50)，高度占比0.98；原则分项 thirds=0.448 headroom=0.625 scale=0.713 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p550.jpg",
+      "human_score": 61.4,
+      "principle_detail": {
+        "thirds": 0.546,
+        "headroom": 0.018,
+        "scale": 0.986,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2489,
+        0.4145,
+        0.738,
+        0.9851
+      ],
+      "area_ratio": 0.2791,
+      "detector_confidence": 0.933,
+      "author": "Christopher Sardegna",
+      "unsplash_url": "https://unsplash.com/photos/CMOa3H1SXG0",
+      "note": "主体中心(0.49,0.70)，高度占比0.57；原则分项 thirds=0.546 headroom=0.018 scale=0.986 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p786.jpg",
+      "human_score": 60.5,
+      "principle_detail": {
+        "thirds": 0.53,
+        "headroom": 0.0,
+        "scale": 0.986,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3919,
+        0.421,
+        0.6123,
+        0.9915
+      ],
+      "area_ratio": 0.1258,
+      "detector_confidence": 0.931,
+      "author": "Jordan Sanchez",
+      "unsplash_url": "https://unsplash.com/photos/sLraJyotfeY",
+      "note": "主体中心(0.50,0.71)，高度占比0.57；原则分项 thirds=0.53 headroom=0.0 scale=0.986 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p661.jpg",
+      "human_score": 60.4,
+      "principle_detail": {
+        "thirds": 0.536,
+        "headroom": 0.0,
+        "scale": 0.976,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4308,
+        0.4585,
+        0.5911,
+        0.9951
+      ],
+      "area_ratio": 0.0861,
+      "detector_confidence": 0.915,
+      "author": "Jake Melara",
+      "unsplash_url": "https://unsplash.com/photos/bA68bHUS9mA",
+      "note": "主体中心(0.51,0.73)，高度占比0.54；原则分项 thirds=0.536 headroom=0.0 scale=0.976 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p91.jpg",
+      "human_score": 58.6,
+      "principle_detail": {
+        "thirds": 0.356,
+        "headroom": 0.614,
+        "scale": 0.712,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2223,
+        0.0043,
+        0.7794,
+        0.9868
+      ],
+      "area_ratio": 0.5474,
+      "detector_confidence": 0.962,
+      "author": "Jennifer Trovato",
+      "unsplash_url": "https://unsplash.com/photos/baRYCsjO6z4",
+      "note": "主体中心(0.50,0.50)，高度占比0.98；原则分项 thirds=0.356 headroom=0.614 scale=0.712 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p22.jpg",
+      "human_score": 58.5,
+      "principle_detail": {
+        "thirds": 0.506,
+        "headroom": 0.377,
+        "scale": 0.755,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.5252,
+        0.3069,
+        0.632,
+        0.7171
+      ],
+      "area_ratio": 0.0438,
+      "detector_confidence": 0.886,
+      "author": "Alejandro Escamilla",
+      "unsplash_url": "https://unsplash.com/photos/du_OrQAA4r0",
+      "note": "主体中心(0.58,0.51)，高度占比0.41；原则分项 thirds=0.506 headroom=0.377 scale=0.755 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p665.jpg",
+      "human_score": 56.6,
+      "principle_detail": {
+        "thirds": 0.471,
+        "headroom": 0.498,
+        "scale": 0.638,
+        "balance": 0.722,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.1236,
+        0.2707,
+        0.2309,
+        0.6141
+      ],
+      "area_ratio": 0.0368,
+      "detector_confidence": 0.828,
+      "author": "Joshua Earle",
+      "unsplash_url": "https://unsplash.com/photos/CND1MBxLA6M",
+      "note": "主体中心(0.18,0.44)，高度占比0.34；原则分项 thirds=0.471 headroom=0.498 scale=0.638 balance=0.722"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p447.jpg",
+      "human_score": 56.1,
+      "principle_detail": {
+        "thirds": 0.554,
+        "headroom": 0.0,
+        "scale": 0.816,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4535,
+        0.4269,
+        0.5327,
+        0.872
+      ],
+      "area_ratio": 0.0353,
+      "detector_confidence": 0.895,
+      "author": "Joshua Earle",
+      "unsplash_url": "https://unsplash.com/photos/YxJ5AfKFgFE",
+      "note": "主体中心(0.49,0.65)，高度占比0.45；原则分项 thirds=0.554 headroom=0.0 scale=0.816 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p726.jpg",
+      "human_score": 54.4,
+      "principle_detail": {
+        "thirds": 0.552,
+        "headroom": 0.247,
+        "scale": 0.556,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3183,
+        0.3459,
+        0.3775,
+        0.6421
+      ],
+      "area_ratio": 0.0176,
+      "detector_confidence": 0.835,
+      "author": "Caleb George",
+      "unsplash_url": "https://unsplash.com/photos/BrXiun04yr4",
+      "note": "主体中心(0.35,0.49)，高度占比0.30；原则分项 thirds=0.552 headroom=0.247 scale=0.556 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p7.jpg",
+      "human_score": 53.9,
+      "principle_detail": {
+        "thirds": 0.628,
+        "headroom": 0.006,
+        "scale": 0.739,
+        "balance": 0.849,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0009,
+        0.4182,
+        0.4153,
+        0.8193
+      ],
+      "area_ratio": 0.1662,
+      "detector_confidence": 0.713,
+      "author": "Alejandro Escamilla",
+      "unsplash_url": "https://unsplash.com/photos/BbQLHCpVUqA",
+      "note": "主体中心(0.21,0.62)，高度占比0.40；原则分项 thirds=0.628 headroom=0.006 scale=0.739 balance=0.849"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p378.jpg",
+      "human_score": 52.9,
+      "principle_detail": {
+        "thirds": 0.655,
+        "headroom": 0.0,
+        "scale": 0.66,
+        "balance": 0.898,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.7418,
+        0.4475,
+        0.8256,
+        0.8033
+      ],
+      "area_ratio": 0.0298,
+      "detector_confidence": 0.848,
+      "author": "Charles Forerunner",
+      "unsplash_url": "https://unsplash.com/photos/3fPXt37X6UQ",
+      "note": "主体中心(0.78,0.63)，高度占比0.36；原则分项 thirds=0.655 headroom=0.0 scale=0.66 balance=0.898"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p405.jpg",
+      "human_score": 50.2,
+      "principle_detail": {
+        "thirds": 0.821,
+        "headroom": 0.0,
+        "scale": 0.353,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.6078,
+        0.6279,
+        0.6474,
+        0.808
+      ],
+      "area_ratio": 0.0071,
+      "detector_confidence": 0.766,
+      "author": "Daniel Robert",
+      "unsplash_url": "https://unsplash.com/photos/jIuKqvVK4Dg",
+      "note": "主体中心(0.63,0.72)，高度占比0.18；原则分项 thirds=0.821 headroom=0.0 scale=0.353 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p729.jpg",
+      "human_score": 48.0,
+      "principle_detail": {
+        "thirds": 0.86,
+        "headroom": 0.0,
+        "scale": 0.239,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.2833,
+        0.644,
+        0.3151,
+        0.7635
+      ],
+      "area_ratio": 0.0038,
+      "detector_confidence": 0.742,
+      "author": "Vladimir Kudinov",
+      "unsplash_url": "https://unsplash.com/photos/OT5nbP2m24I",
+      "note": "主体中心(0.30,0.70)，高度占比0.12；原则分项 thirds=0.86 headroom=0.0 scale=0.239 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p203.jpg",
+      "human_score": 45.9,
+      "principle_detail": {
+        "thirds": 0.564,
+        "headroom": 0.048,
+        "scale": 0.425,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.5825,
+        0.4057,
+        0.6595,
+        0.6274
+      ],
+      "area_ratio": 0.0171,
+      "detector_confidence": 0.922,
+      "author": "Diogo Tavares",
+      "unsplash_url": "https://unsplash.com/photos/PFZTiiJnjag",
+      "note": "主体中心(0.62,0.52)，高度占比0.22；原则分项 thirds=0.564 headroom=0.048 scale=0.425 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p505.jpg",
+      "human_score": 45.7,
+      "principle_detail": {
+        "thirds": 0.683,
+        "headroom": 0.0,
+        "scale": 0.341,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.5918,
+        0.4827,
+        0.6227,
+        0.6562
+      ],
+      "area_ratio": 0.0054,
+      "detector_confidence": 0.714,
+      "author": "lee Scott",
+      "unsplash_url": "https://unsplash.com/photos/_VTgctRg0tA",
+      "note": "主体中心(0.61,0.57)，高度占比0.17；原则分项 thirds=0.683 headroom=0.0 scale=0.341 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p773.jpg",
+      "human_score": 45.2,
+      "principle_detail": {
+        "thirds": 0.703,
+        "headroom": 0.145,
+        "scale": 0.184,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.3822,
+        0.3764,
+        0.4023,
+        0.4685
+      ],
+      "area_ratio": 0.0018,
+      "detector_confidence": 0.808,
+      "author": "Julia Caesar",
+      "unsplash_url": "https://unsplash.com/photos/asct7UP3YDE",
+      "note": "主体中心(0.39,0.42)，高度占比0.09；原则分项 thirds=0.703 headroom=0.145 scale=0.184 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p699.jpg",
+      "human_score": 44.7,
+      "principle_detail": {
+        "thirds": 0.533,
+        "headroom": 0.0,
+        "scale": 0.456,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4431,
+        0.6457,
+        0.4958,
+        0.8851
+      ],
+      "area_ratio": 0.0126,
+      "detector_confidence": 0.8,
+      "author": "Biegun Wschodni",
+      "unsplash_url": "https://unsplash.com/photos/vD3L-rN_qNw",
+      "note": "主体中心(0.47,0.77)，高度占比0.24；原则分项 thirds=0.533 headroom=0.0 scale=0.456 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p590.jpg",
+      "human_score": 42.3,
+      "principle_detail": {
+        "thirds": 0.554,
+        "headroom": 0.0,
+        "scale": 0.837,
+        "balance": 0.041,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0012,
+        0.5398,
+        0.4166,
+        0.9968
+      ],
+      "area_ratio": 0.1898,
+      "detector_confidence": 0.899,
+      "author": "Edan Cohen",
+      "unsplash_url": "https://unsplash.com/photos/ptW67z7Y4-s",
+      "note": "主体中心(0.21,0.77)，高度占比0.46；原则分项 thirds=0.554 headroom=0.0 scale=0.837 balance=0.041"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p689.jpg",
+      "human_score": 42.3,
+      "principle_detail": {
+        "thirds": 0.707,
+        "headroom": 0.0,
+        "scale": 0.202,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.6363,
+        0.5195,
+        0.7818,
+        0.6204
+      ],
+      "area_ratio": 0.0147,
+      "detector_confidence": 0.892,
+      "author": "Tim Mossholder",
+      "unsplash_url": "https://unsplash.com/photos/P3ek4SMx_kc",
+      "note": "主体中心(0.71,0.57)，高度占比0.10；原则分项 thirds=0.707 headroom=0.0 scale=0.202 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p173.jpg",
+      "human_score": 41.0,
+      "principle_detail": {
+        "thirds": 0.579,
+        "headroom": 0.0,
+        "scale": 0.287,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4508,
+        0.6071,
+        0.5178,
+        0.7504
+      ],
+      "area_ratio": 0.0096,
+      "detector_confidence": 0.797,
+      "author": "Linh Nguyen",
+      "unsplash_url": "https://unsplash.com/photos/J8k-gzI0Zy0",
+      "note": "主体中心(0.48,0.68)，高度占比0.14；原则分项 thirds=0.579 headroom=0.0 scale=0.287 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p209.jpg",
+      "human_score": 40.8,
+      "principle_detail": {
+        "thirds": 0.508,
+        "headroom": 0.142,
+        "scale": 0.359,
+        "balance": 0.75,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.428,
+        0.3775,
+        0.466,
+        0.5613
+      ],
+      "area_ratio": 0.007,
+      "detector_confidence": 0.713,
+      "author": "Martin Wessely",
+      "unsplash_url": "https://unsplash.com/photos/-FgZlbzZ0R8",
+      "note": "主体中心(0.45,0.47)，高度占比0.18；原则分项 thirds=0.508 headroom=0.142 scale=0.359 balance=0.75"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p607.jpg",
+      "human_score": 33.6,
+      "principle_detail": {
+        "thirds": 0.503,
+        "headroom": 0.0,
+        "scale": 0.118,
+        "balance": 1.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.4788,
+        0.7038,
+        0.5227,
+        0.7628
+      ],
+      "area_ratio": 0.0026,
+      "detector_confidence": 0.503,
+      "author": "Grégoire Hervé-Bazin",
+      "unsplash_url": "https://unsplash.com/photos/_LLcIlMoUaE",
+      "note": "主体中心(0.50,0.73)，高度占比0.06；原则分项 thirds=0.503 headroom=0.0 scale=0.118 balance=1.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p386.jpg",
+      "human_score": 20.3,
+      "principle_detail": {
+        "thirds": 0.359,
+        "headroom": 0.0,
+        "scale": 0.316,
+        "balance": 0.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.6749,
+        0.8159,
+        0.7148,
+        0.9752
+      ],
+      "area_ratio": 0.0064,
+      "detector_confidence": 0.735,
+      "author": "Topich",
+      "unsplash_url": "https://unsplash.com/photos/czfUy4ZKuJ0",
+      "note": "主体中心(0.69,0.90)，高度占比0.16；原则分项 thirds=0.359 headroom=0.0 scale=0.316 balance=0.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p585.jpg",
+      "human_score": 14.8,
+      "principle_detail": {
+        "thirds": 0.084,
+        "headroom": 0.0,
+        "scale": 0.409,
+        "balance": 0.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.0147,
+        0.7874,
+        0.1735,
+        1.0
+      ],
+      "area_ratio": 0.0338,
+      "detector_confidence": 0.594,
+      "author": "Abigail  Keenan",
+      "unsplash_url": "https://unsplash.com/photos/5Xs09ljJhlw",
+      "note": "主体中心(0.09,0.89)，高度占比0.21；原则分项 thirds=0.084 headroom=0.0 scale=0.409 balance=0.0"
+    },
+    {
+      "image": "configs\\eval\\images_real\\p131.jpg",
+      "human_score": 12.4,
+      "principle_detail": {
+        "thirds": 0.18,
+        "headroom": 0.0,
+        "scale": 0.234,
+        "balance": 0.0,
+        "clipped": false
+      },
+      "subject_bbox": [
+        0.909,
+        0.7526,
+        0.9393,
+        0.8698
+      ],
+      "area_ratio": 0.0035,
+      "detector_confidence": 0.727,
+      "author": "Charlie Foster",
+      "unsplash_url": "https://unsplash.com/photos/yPaskTQiNjA",
+      "note": "主体中心(0.92,0.81)，高度占比0.12；原则分项 thirds=0.18 headroom=0.0 scale=0.234 balance=0.0"
+    }
+  ]
+}

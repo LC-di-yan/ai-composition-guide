@@ -1,0 +1,137 @@
+name: Docker
+
+# 目的：把「未实测构建」这块空白补上。
+#
+# 背景：本项目开发机 Docker daemon 未运行，因此 Dockerfile/compose
+# 长期只有**静态校验**（scripts/check_docker_static.py）兜底。
+# 静态校验能证明"没有必然失败项"，**不能证明"能构建成功"**。
+# 这个 workflow 在 GitHub runner（有 Docker daemon）上做真构建，
+# 从而把交付状态从「⚠️ 未实测构建」推进到「✅ 已在 CI 实测构建」。
+#
+# 触发策略：默认只在手动触发 + 推送 tag 时跑。
+# 因为镜像构建约需数分钟且消耗 CI 额度，不适合每次 push 都跑。
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+    paths:
+      - "docker/**"
+      - "requirements.txt"
+      - "pyproject.toml"
+      - "src/**"
+
+jobs:
+  static-gate:
+    name: 静态校验（先行，秒级）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # 静态不过就不必浪费几分钟去 build
+      - run: python scripts/check_docker_static.py --verbose
+
+  build:
+    name: 实测构建 CPU 镜像
+    needs: static-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 构建（含缓存）
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          load: true
+          tags: aicg:ci
+          build-args: |
+            WITH_MODEL=0
+            WITH_TEST=0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 校验镜像基本属性
+        run: |
+          set -e
+          echo "—— 镜像信息 ——"
+          docker images aicg:ci --format "{{.Repository}}:{{.Tag}}  {{.Size}}"
+
+          echo "—— 入口是否为 factory（关键回归点）——"
+          # 历史缺陷：CMD 曾写成 aicg.api.app:app（模块只有工厂 create_app）
+          # → 容器启动必失败。这里断言 --factory 存在，防止回归。
+          docker inspect aicg:ci --format '{{json .Config.Cmd}}' | tee /tmp/cmd.json
+          grep -q -- "--factory" /tmp/cmd.json \
+            || { echo "❌ CMD 缺少 --factory：容器将启动失败"; exit 1; }
+          grep -q "aicg.api.app:create_app" /tmp/cmd.json \
+            || { echo "❌ CMD 入口不是 create_app"; exit 1; }
+          echo "✅ 入口正确"
+
+          echo "—— 以非 root 运行 ——"
+          user=$(docker inspect aicg:ci --format '{{.Config.User}}')
+          echo "镜像默认用户: $user"
+          [ "$user" = "appuser" ] || { echo "❌ 预期 appuser，实际 $user"; exit 1; }
+
+      - name: 烟测（启动服务并探活）
+        run: |
+          set -e
+          # 端口错开本地默认 8000，避免与宿主冲突
+          docker run -d --name aicg-smoke -p 18000:8000 aicg:ci
+          cleanup() { docker logs aicg-smoke || true; docker rm -f aicg-smoke || true; }
+          trap cleanup EXIT
+
+          echo "—— 等待 /healthz 就绪 ——"
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:18000/healthz >/dev/null 2>&1; then
+              echo "✅ 第 ${i} 次探测成功"
+              break
+            fi
+            if [ "$i" = "30" ]; then
+              echo "❌ 30 次探测均失败（约 60s）"
+              exit 1
+            fi
+            sleep 2
+          done
+
+          echo "—— /healthz ——"
+          curl -fsS http://localhost:18000/healthz | tee /tmp/health.json
+          echo
+          echo "—— /readyz ——"
+          curl -fsS http://localhost:18000/readyz | tee /tmp/ready.json
+          echo
+          # 镜像刻意不装 torch/权重：感知层应**自动降级为 rule**。
+          # 这正是设计承诺（"无模型也能跑"），因此断言而不只是打印。
+          python3 - <<'EOF'
+          import json, sys
+          d = json.load(open("/tmp/ready.json"))
+          backend = d.get("perception_backend")
+          print("perception_backend =", backend)
+          if backend != "rule":
+              print("❌ 无权重镜像的感知后端应为 rule（自动降级），实际:", backend)
+              sys.exit(1)
+          print("✅ 感知降级到 rule，符合设计")
+          EOF
+
+          echo "—— Web 演示页可访问 ——"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:18000/
+
+      - name: 冒烟跑一次单帧推理（规则后端）
+        run: |
+          set -e
+          # 证明「无 torch/无权重」的镜像里链路依然可用 —— 这是刻意的设计承诺。
+          # 用 --max-frames 限制帧数（参数名经 `run_demo.py --help` 核实）。
+          docker run --rm \
+            -v "$PWD/tests/fixtures:/app/tests/fixtures:ro" \
+            aicg:ci \
+            python scripts/run_demo.py \
+              --source tests/fixtures/handheld_jitter.mp4 \
+              --backend rule \
+              --max-frames 5 \
+              --no-render \
+              --quiet
+          echo "✅ 镜像内可完成单帧推理（rule 后端，无模型权重）"

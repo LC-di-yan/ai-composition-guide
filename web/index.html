@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 实时构图指导 Agent · 交互演示</title>
+<!--
+  交互演示页（M6 交付物）
+
+  设计定位
+  --------
+  这是"双轨交付"的 Web 轨：录屏轨展示端侧实时引导过程（OpenCV 渲染，
+  ASCII 标注）；Web 轨展示**中文文案层 + 可交互的构图反馈**。
+  两条轨道共用同一套后端（POST /v1/frame），不重复实现业务逻辑。
+
+  三种运行模式（页面顶部切换）
+  --------------------------
+  1. 演示模式（默认，无需后端）：回放**真实录制的 API 响应**
+     （由 scripts/record_web_samples.py 生成，见 web/samples/_meta.json）
+  2. 联机模式：连真实 API，逐帧上传本地图片
+  3. 待机：不发请求，仅显示静态界面
+
+  诚实标注
+  --------
+  · 演示样本**不是手写的**，是用 record_web_samples.py 从真实后端录的。
+    字段与 /v1/frame 响应同源同构，因此回放与联机共用同一条渲染路径。
+  · 浏览器端**不做任何构图计算**，全部结论来自后端，避免"前端装饰性
+    结论"误导观众。
+  · 页面**主动暴露**当前已知缺陷（见下方 KNOWN_ISSUES）——演示时若
+    看到"该保持却在喊靠近"，那不是 bug 被藏起来，而是被标出来了。
+-->
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --line:#e3e6ea;
+    --ink:#1b1f24; --ink-2:#5b6673; --ink-3:#8b95a1;
+    --accent:#2f6df6; --warn:#e8a33d; --danger:#e5534b; --ok:#2ea043;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  header{
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:13px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    position:sticky;top:0;z-index:10;
+    box-shadow:0 1px 0 var(--line), 0 3px 10px rgba(16,24,40,.04);
+  }
+  header h1{font-size:16px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--ink-3);font-size:12.5px}
+  .spacer{flex:1}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{
+    border:0;background:var(--panel);color:var(--ink-2);
+    padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:inherit;
+  }
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--accent);color:#fff;font-weight:600}
+
+  main{max-width:1300px;margin:0 auto;padding:20px 22px 60px;
+    display:grid;grid-template-columns:minmax(0,1.4fr) minmax(330px,1fr);gap:20px}
+  @media (max-width:1000px){main{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px}
+  .card>.hd{padding:11px 15px;border-bottom:1px solid var(--line);
+    font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .card>.hd .tag{font-weight:400;color:var(--ink-3);font-size:11.5px}
+  .card>.hd .tag.ok{color:#1f7a33;font-weight:600}
+  .card>.bd{padding:15px}
+
+  /* ---- 画面区 ---- */
+  /* .stage 是弹性容器，canvas 在其中居中且可能比 stage 小。
+     覆盖层必须**贴合 canvas 本身**，否则框会画到画面外的黑边上（踩过）。
+     做法：把 canvas 与 overlay 一起放进 .frame 包裹层，overlay 用 absolute
+     钉在 .frame 上，而 .frame 的尺寸由 canvas 决定。 */
+  .stage{position:relative;background:#0f1216;border-radius:8px;overflow:hidden;
+    display:flex;align-items:center;justify-content:center;min-height:380px;padding:8px}
+  .frame{position:relative;display:inline-block;line-height:0}
+  .stage canvas{max-width:100%;max-height:62vh;display:block}
+  .stage .empty{color:#6b7480;font-size:13px;text-align:center;padding:20px}
+
+  .overlay{position:absolute;inset:0;pointer-events:none;line-height:1.4}
+  .gridline{position:absolute;background:rgba(255,255,255,.20)}
+  .gridline.v{width:1px;height:100%}
+  .gridline.h{height:1px;width:100%}
+  .bb{position:absolute;border-style:solid;border-radius:2px;transition:all .18s ease-out}
+  .bb.subject{border:2px solid #5adc5a;box-shadow:0 0 0 1px rgba(0,0,0,.4)}
+  .bb.best{border:2px dashed #fbc83c;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+  .bb .lbl{position:absolute;top:-19px;left:-1px;font-size:10.5px;
+    padding:1px 5px;border-radius:3px;color:#0d1117;white-space:nowrap;font-weight:600}
+  .bb.subject .lbl{background:#5adc5a}
+  .bb.best .lbl{background:#fbc83c}
+  /* 动作箭头：从主体中心指向前进方向 */
+  .arrow{position:absolute;font-size:30px;color:#fff;font-weight:700;
+    text-shadow:0 2px 8px rgba(0,0,0,.75);transition:all .18s ease-out;
+    transform:translate(-50%,-50%)}
+  .banner{position:absolute;left:0;right:0;top:0;padding:9px 12px;
+    background:linear-gradient(180deg,rgba(12,15,20,.88),rgba(12,15,20,0));}
+  .banner .act{font-size:21px;font-weight:700;letter-spacing:.5px;color:#fff;
+    display:flex;align-items:center;gap:9px}
+  .banner .act.hold{color:#7ee38a}
+  .banner .mag{font-size:12.5px;color:#c9d1dc;margin-top:2px}
+  .banner .sup{font-size:11px;color:#8b95a1;margin-top:3px}
+  .corner{position:absolute;left:0;right:0;bottom:0;padding:9px 12px;
+    background:linear-gradient(0deg,rgba(12,15,20,.85),rgba(12,15,20,0));
+    font-size:11px;color:#c9d1dc;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    line-height:1.65}
+  .corner .dg{color:#ff8f85}
+  .corner .rt{color:#ffd479}
+
+  /* ---- 控制条 ---- */
+  .ctrl{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:6px 12px;border-radius:7px;font-size:12.5px;cursor:pointer;font-family:inherit}
+  .btn:hover:not(:disabled){border-color:#c8cdd4;background:#fafbfc}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+  .btn.primary:hover:not(:disabled){background:#255ee0}
+  .file{display:none}
+  .hint{font-size:12px;color:var(--ink-3);line-height:1.7}
+  .hint code{background:#eef1f5;padding:1px 5px;border-radius:4px;
+    font-size:11.5px;font-family:ui-monospace,Menlo,monospace;color:#3b4652}
+  .hint b{color:var(--ink-2)}
+  .err{color:var(--danger);font-weight:600}
+
+  /* ---- 时间轴 ---- */
+  .tl{display:flex;gap:3px;margin-top:11px;align-items:center;flex-wrap:wrap}
+  .tl .dot{width:24px;height:24px;border-radius:6px;border:1px solid var(--line);
+    background:#fbfcfd;font-size:10.5px;color:var(--ink-3);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .tl .dot:hover{border-color:#c8cdd4}
+  .tl .dot.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+  .tl .dot.hold{background:#e8f6ea;border-color:#b7e0bd;color:#1f7a33}
+  .tl .dot.hold.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .tl .dot.deg{background:#fdeceb;border-color:#f3c2bf;color:#a8322b}
+  .tl .dot.deg.on{background:var(--danger);color:#fff;border-color:var(--danger)}
+
+  /* ---- 侧栏指标 ---- */
+  .metric{display:flex;justify-content:space-between;align-items:baseline;
+    padding:7px 0;border-bottom:1px dashed var(--line)}
+  .metric:last-child{border-bottom:0}
+  .metric .k{color:var(--ink-2);font-size:12.5px}
+  .metric .v{font-weight:650;font-variant-numeric:tabular-nums}
+  .big{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+  .bar{height:7px;background:#eef1f5;border-radius:99px;overflow:hidden;margin-top:8px}
+  .bar>i{display:block;height:100%;background:var(--accent);transition:width .3s ease}
+  .bar>i.ok{background:var(--ok)} .bar>i.warn{background:var(--warn)} .bar>i.danger{background:var(--danger)}
+  .subs{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;margin-top:9px}
+  .sub{display:flex;align-items:center;gap:7px;font-size:12px}
+  .sub .n{color:var(--ink-2);flex:1;white-space:nowrap}
+  .sub .mb{width:52px;height:5px;background:#eef1f5;border-radius:99px;overflow:hidden;flex:none}
+  .sub .mb>i{display:block;height:100%}
+  .sub .vv{width:32px;text-align:right;font-variant-numeric:tabular-nums;
+    color:var(--ink-2);font-size:11.5px;flex:none}
+  .chip{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
+    background:#fafbfc;color:var(--ink-2)}
+  .chip.ok{border-color:#b7e0bd;background:#eaf7ec;color:#1f7a33}
+  .chip.warn{border-color:#f0d9a8;background:#fdf5e6;color:#8a6212}
+  .chip.danger{border-color:#f3c2bf;background:#fdeceb;color:#a8322b}
+  .chip.info{border-color:#c9d8f8;background:#eef3fe;color:#24479b}
+  .narration{font-size:13px;line-height:1.85;white-space:pre-wrap}
+  .narration .h{font-size:11.5px;color:var(--ink-3);margin-bottom:6px}
+
+  /* ---- 已知缺陷提示条 ---- */
+  .known{border:1px solid #f0d9a8;background:#fdf9ef;border-radius:8px;
+    padding:10px 13px;font-size:12.5px;color:#6b5314;line-height:1.7}
+  .known b{color:#8a6212}
+  .known .x{margin-top:6px;font-size:11.5px;color:#8a7a5a}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>AI 实时构图指导 Agent</h1>
+    <div class="sub">Web 轨演示 · 中文文案层 · 后端 <span id="epLabel">演示样本</span></div>
+  </div>
+  <div class="spacer"></div>
+  <div class="seg" id="modeSeg">
+    <button data-mode="demo" class="on">演示模式</button>
+    <button data-mode="live">联机模式</button>
+    <button data-mode="idle">待机</button>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 左：画面 ============ -->
+  <section>
+    <div class="card">
+      <div class="hd">
+        实时取景
+        <span class="tag" id="stageTag">真实录制的后端响应回放</span>
+        <span style="flex:1"></span>
+        <span class="tag" id="fpsLabel"></span>
+      </div>
+      <div class="bd">
+        <div class="stage" id="stage">
+          <div class="frame" id="frame">
+            <canvas id="canvas" width="600" height="800"></canvas>
+            <div class="overlay" id="overlay">
+              <div class="banner" id="banner" style="display:none">
+                <div class="act" id="actText"></div>
+                <div class="mag" id="magText"></div>
+                <div class="sup" id="supText"></div>
+              </div>
+              <div class="corner" id="corner" style="display:none"></div>
+            </div>
+          </div>
+          <div class="empty" id="stageEmpty">
+            选择「演示模式」或「联机模式」开始<br>
+            <span style="font-size:11.5px;color:#4d5560">画面由后端逐帧推理结果驱动</span>
+          </div>
+        </div>
+
+        <div class="tl" id="timeline"></div>
+
+        <div class="ctrl">
+          <input type="file" id="fileInput" class="file" accept="image/*" multiple>
+          <button class="btn primary" id="btnPlay" disabled>▶ 开始回放</button>
+          <button class="btn" id="btnFrame" disabled>下一帧</button>
+          <button class="btn" id="btnPrev" disabled>上一帧</button>
+          <button class="btn" id="btnPick" disabled>选择本地图片…</button>
+          <button class="btn" id="btnReset" disabled>重置</button>
+        </div>
+        <div class="hint" id="ctrlHint" style="margin-top:9px"></div>
+      </div>
+    </div>
+
+    <!-- 已知缺陷：主动暴露，不藏 -->
+    <div class="card" id="knownCard">
+      <div class="hd">缺陷复盘（主动标注）<span class="tag ok">D-10 / D-11 · 已修复</span></div>
+      <div class="bd">
+        <div class="known">
+          <b>① 三常量不自洽（D-10，已修复）</b>：描述同一件"理想构图"的三个常量
+          分属三层却互不一致 —— 评分层 <code>ideal_subject_height=0.55</code>、
+          差分层 <code>_TARGET_OCCUPANCY=0.68</code>、距离层
+          <code>ideal_distance_m=2.6</code>（≈0.71）。
+          现以<b>评分层为唯一真源</b>，差分层改为从配置派生
+          （保持窗口 <b>0.4675~0.6325</b>），并加了<b>加载期跨层校验</b>：
+          若理想占比反推的距离落在建议区间外，配置直接报错。
+          <div class="x">
+            ⚠️ <b>诚实更正</b>：本页早期版本断言"真实人像占高多在 0.30~0.60，
+            故『靠近』是默认输出"，并用此解释 10 帧全部 close。经用 YOLO 实测
+            23 张真实素材后，<b>该断言不成立</b> —— 实测占高中位数 <b>0.794</b>
+            （区间 0.266~0.992），并非 0.30~0.60。窗口重叠率仅从 13.6% 升到 18.2%，
+            <b>说明常量不自洽虽是真实缺陷，却不足以解释"10 帧全 close"</b>。
+          </div>
+        </div>
+        <div class="known" style="margin-top:10px">
+          <b>② 防抖层闩锁（D-11，这才是"全 close"的真因）</b>：
+          防抖要求"候选动作连续 3 帧一致才切换"，任何一帧异类即清零。
+          10 张素材顺序推入时，raw 动作为
+          <code>closer, back, hold, back, back, right, back, closer, back, closer</code>
+          —— 其中 6 帧其实是「该后退」，但<b>从未有 3 个相同动作连续出现</b>，
+          于是管线<b>被锁死在首帧动作上</b>，10 帧全部输出「靠近」。
+          <div class="x">
+            这是状态机的<b>活性缺陷</b>，不是阈值调参问题。
+            修复：允许<b>安全方向</b>（<code>hold</code>/<code>move_back</code>）
+            在"卡住超过最小间隔 + 长窗内占多数 + 冷却已过"三条件下穿透。
+            实测 <b>AC-06 切换抑制从 77.38% 提升到 93.02%</b>
+            （84→19 变为 86→6 次/240 帧），且 <code>walk_towards.mp4</code>
+            等真实连续素材输出与 raw 一一对应。
+            <b>不影响 FR-03（构图评分）</b>，SRCC +0.91 结论仍成立。
+            详见 <code>docs/research/构图指令一致性与防抖闩锁缺陷_D-10_D-11.md</code>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 右：指标 ============ -->
+  <section style="min-width:0">
+    <div class="card">
+      <div class="hd">构图指令 <span class="tag">FR-04 / FR-06</span></div>
+      <div class="bd">
+        <div class="big" id="mAction">—</div>
+        <div class="hint" id="mMag" style="margin-top:2px"></div>
+        <div style="margin-top:11px;display:flex;gap:6px;flex-wrap:wrap" id="mChips"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">构图评估 <span class="tag">FR-03</span></div>
+      <div class="bd">
+        <div style="display:flex;align-items:baseline;gap:8px">
+          <span class="big" id="mScore">—</span>
+          <span class="hint">当前构图分 / 建议框可得 <b id="mBest">—</b></span>
+        </div>
+        <div class="bar" id="scoreBar"><i style="width:0"></i></div>
+        <div class="subs" id="mSubs"></div>
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap" id="mPatterns"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">实时性 <span class="tag">NFR-P1 · 预算 333ms @3FPS</span></div>
+      <div class="bd">
+        <div class="metric"><span class="k">单帧总耗时</span><span class="v" id="mTotal">—</span></div>
+        <div class="metric"><span class="k">感知 perception</span><span class="v" id="mPerc">—</span></div>
+        <div class="metric"><span class="k">决策 decision</span><span class="v" id="mDec">—</span></div>
+        <div class="metric"><span class="k">防抖 stabilization</span><span class="v" id="mStab">—</span></div>
+        <div class="metric"><span class="k">预算占用</span><span class="v" id="mBudget">—</span></div>
+        <div class="bar" id="budgetBar"><i style="width:0"></i></div>
+        <div class="hint" id="latNote" style="margin-top:9px"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="hd">拍后解说 <span class="tag">FR-07 · 中文文案层</span></div>
+      <div class="bd">
+        <div class="narration" id="mNarr" style="display:none"></div>
+        <div class="hint" id="mNarrEmpty">
+          本条样本录制时未开启语言层（<code>--lang</code>），因此这里显示静态示例。
+          接入真实 VLM 只需配置 API Key，无需改动本页面。
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+/* =========================================================================
+   回放样本：**真实录制的后端响应**
+   生成方式： python scripts/record_web_samples.py --port 8010 --limit 10
+   性质：     字段与 POST /v1/frame 响应完全同源同构（不是手写假数据）
+   兜底：     若 samples/frames.json 拉不到（如用 file:// 直接打开），
+              退回到下方内联的最小样本集，页面仍可自证。
+   ========================================================================= */
+const FALLBACK_FRAMES = [{
+  file:"(fallback) 内联样本", topic:"demo", width:600, height:800,
+  response:{
+    schema_version:"0.1", frame_id:1, timestamp_ms:0, frame_size:[600,800],
+    command:{action:"hold", direction:null, magnitude_text:"保持", magnitude_raw:0,
+      urgency:"low", is_hold:true, confidence:0.7, can_skip:true, is_changed:true,
+      raw_action:"hold", suppressed_by:null, consecutive_frames:3, smoothing:0.5},
+    composition:{composition_score:0, pattern:"unknown", pattern_label:"待定",
+      shot_size_label:"—", best_bbox:[0.34,0.30,0.66,0.86], best_score:0,
+      candidate_count:0, sub_scores:{}, rule_violations:[]},
+    subject:null,
+    latency:{capture_ms:0,perception_ms:0,decision_ms:0,stabilization_ms:0,total_ms:0},
+    degraded:true, degradation_reason:"unknown", backend:"—",
+  }
+}];
+
+/* 缺陷判据（D-10 / D-11）。把判据写进代码，页面才能**主动提示**
+   而不是靠人眼发现 —— 修好之后，这里同时充当回归哨兵：
+   只要再出现"占比明显过大却要求靠近"，页面就会亮徽标。
+
+   HOLD 窗口直接来自差分层实测（D-10 修复后）：
+     target_occupancy = ideal_subject_height = 0.55
+     tolerance        = 0.55 * 0.15 = 0.0825
+     → 保持窗口 (0.4675, 0.6325)
+   ⚠️ 必须与 src/aicg/settings.py 的 ScoringConfig 保持一致；
+   scripts/verify_web_demo.py 会在浏览器侧断言这组数值。 */
+const D10_HOLD_LO = 0.4675, D10_HOLD_HI = 0.6325;
+function isD10(resp){
+  const s = resp.subject;
+  if(!s || s.height_ratio == null) return false;
+  const r = s.height_ratio, cmd = (resp.command||{}).action;
+  // 情形一：占比在正常区间，却被要求靠近（默认输出嫌疑）
+  const stuck = r < D10_HOLD_LO && cmd === "move_closer";
+  // 情形二：占比明显过大（该后退），却仍要求靠近 —— 自相矛盾
+  const contra = r > D10_HOLD_HI && cmd === "move_closer";
+  return stuck || contra;
+}
+
+const ACTION_ZH = {
+  move_closer:["靠近一点", "↑"], move_back:["后退一点", "↓"],
+  move_left:["向左移动", "←"],  move_right:["向右移动", "→"],
+  tilt_up:["镜头抬高", "⤒"],     tilt_down:["镜头压低", "⤓"],
+  hold:["保持不动", "✓"],
+};
+const PATTERN_ZH = {
+  rule_of_thirds:"三分法", center:"中心构图", symmetric:"对称构图",
+  diagonal:"对角线", framing:"框架式", unknown:"待判定",
+};
+const SUB_ZH = {
+  thirds:"三分点对齐", balance:"画面平衡", headroom:"头顶留白",
+  lead_room:"前方留白", subject_scale:"主体占比", saliency_center:"视觉重点",
+  subject_center:"主体居中",
+};
+const NARRATION_SAMPLE =
+  "这一张采用了中心构图，主体落在画面中部，姿态自然、视觉重心稳定。\n" +
+  "可以改进的地方：主体略带偏移，头顶留白略多，画面右下角留白偏空。\n" +
+  "建议：向右轻移半步，让主体靠近右三分线，同时略微靠近拍摄对象，让主体在画面中的占比更饱满。";
+
+/* =========================================================================
+   状态
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+const state = {
+  mode:"demo", idx:0, playing:false, timer:null,
+  frames: FALLBACK_FRAMES, playing_ok:false,
+  live:{sessionId:null, images:[], cursor:0},
+  lastFrameAt:0,
+};
+
+function pct(v){ return (v*100).toFixed(0)+"%"; }
+function ms(v){ return (v==null||isNaN(v)) ? "—" : (+v).toFixed(1)+" ms"; }
+function scoreClass(v){ return v>=70?"ok" : v>=45?"warn" : "danger"; }
+
+/* =========================================================================
+   画面绘制
+   ========================================================================= */
+function drawPlaceholder(){
+  const cv = $("canvas"), ctx = cv.getContext("2d");
+  cv.width = 600; cv.height = 800;
+  const {width:w, height:h} = cv;
+  const g = ctx.createLinearGradient(0,0,0,h);
+  g.addColorStop(0,"#8fa8c8"); g.addColorStop(.62,"#b9c6d4"); g.addColorStop(1,"#6f7b88");
+  ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle="rgba(255,255,255,.18)"; ctx.lineWidth=1;
+  for(let i=1;i<3;i++){
+    ctx.beginPath(); ctx.moveTo(w*i/3,0); ctx.lineTo(w*i/3,h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,h*i/3); ctx.lineTo(w,h*i/3); ctx.stroke();
+  }
+  ctx.fillStyle="rgba(255,255,255,.5)";
+  ctx.font="13px ui-monospace,Menlo,monospace";
+  ctx.fillText("canvas placeholder — 真实帧由后端结果驱动", 16, h-18);
+}
+
+/* 把一张图（data URI）画到画布，按容器宽度自适应高度 */
+function paintImage(dataUri){
+  return new Promise(res=>{
+    const cv = $("canvas"), ctx = cv.getContext("2d");
+    const im = new Image();
+    im.onload = ()=>{
+      const maxW = 720, maxH = 620;
+      let w = im.width, h = im.height;
+      const s = Math.min(maxW/w, maxH/h, 1);
+      cv.width = Math.round(w*s); cv.height = Math.round(h*s);
+      ctx.drawImage(im, 0, 0, cv.width, cv.height);
+      res(true);
+    };
+    im.onerror = ()=>res(false);
+    im.src = dataUri;
+  });
+}
+
+/* 三分网格 + 主体框 + 建议框 + 动作箭头 */
+function drawOverlay(resp){
+  const ov = $("overlay");
+  ov.querySelectorAll(".bb,.gridline,.arrow").forEach(e=>e.remove());
+  const cv = $("canvas");
+  if(!cv.width) return;
+  const W = cv.clientWidth || cv.width, H = cv.clientHeight || cv.height;
+
+  for(let i=1;i<3;i++){
+    const v = document.createElement("div");
+    v.className="gridline v"; v.style.left = (i*100/3)+"%"; ov.appendChild(v);
+    const h = document.createElement("div");
+    h.className="gridline h"; h.style.top = (i*100/3)+"%"; ov.appendChild(h);
+  }
+
+  const place = (bbox, cls, label)=>{
+    if(!bbox) return null;
+    const [x1,y1,x2,y2] = bbox;
+    // 退化框保护：后端在「主体溢出」等路径上会返回锚在原点的框
+    // （实测帧 5：best_bbox = [0, 0, 0.664, 0.951]），
+    // 直接画会变成贴着左上角的怪框，误导观众。宽高为 0 也跳过。
+    if(!(x2 > x1) || !(y2 > y1)) return null;
+    if(x1 <= 0.001 && y1 <= 0.001) return null;
+    const el = document.createElement("div");
+    el.className = "bb "+cls;
+    el.style.left = (x1*100)+"%"; el.style.top = (y1*100)+"%";
+    el.style.width = ((x2-x1)*100)+"%"; el.style.height = ((y2-y1)*100)+"%";
+    if(label){ const t=document.createElement("span"); t.className="lbl"; t.textContent=label; el.appendChild(t); }
+    ov.appendChild(el);
+    return el;
+  };
+
+  const comp = resp.composition || {}, subj = resp.subject, cmd = resp.command || {};
+  const sameBox = subj && comp.best_bbox
+    && JSON.stringify(subj.bbox) === JSON.stringify(comp.best_bbox);
+  if(subj && subj.bbox) place(subj.bbox, "subject", "主体");
+  // 只有与主体框不同、且非退化时才画"建议框"，避免两框重叠看不出区别
+  if(comp.best_bbox && !sameBox) place(comp.best_bbox, "best", "建议框");
+
+  // 动作箭头：从主体中心指向动作方向
+  if(subj && subj.bbox && cmd.action && cmd.action !== "hold"){
+    const [x1,y1,x2,y2] = subj.bbox;
+    const cx = (x1+x2)/2, cy = (y1+y2)/2;
+    const [, arrow] = ACTION_ZH[cmd.action] || [cmd.action,"•"];
+    const el = document.createElement("div");
+    el.className="arrow"; el.textContent = arrow;
+    const off = 0.13;
+    const dx = {move_left:-1, move_right:1}[cmd.action] || 0;
+    const dy = {move_closer:-1, move_back:1, tilt_up:-1, tilt_down:1}[cmd.action] || 0;
+    el.style.left = ((cx + dx*off)*100)+"%";
+    el.style.top  = ((cy + dy*off)*100)+"%";
+    ov.appendChild(el);
+  }
+}
+
+/* =========================================================================
+   指标渲染
+   ========================================================================= */
+function render(resp){
+  const comp = resp.composition || {}, cmd = resp.command || {}, lat = resp.latency || {};
+  const subj = resp.subject;
+
+  drawOverlay(resp);
+
+  // ---- 指令条 ----
+  const banner = $("banner");
+  banner.style.display = "block";
+  const [zh, arrow] = ACTION_ZH[cmd.action] || [cmd.action, "•"];
+  const actEl = $("actText");
+  actEl.className = "act" + (cmd.action==="hold" ? " hold" : "");
+  actEl.textContent = `${arrow} ${zh}`;
+  $("magText").textContent = cmd.magnitude_text || "";
+
+  const supMap = {
+    min_interval:"最小切换间隔内 · 暂不改口",
+    n_frame_consensus:"等待连续帧确认",
+    cooldown:"冷却中",
+  };
+  let sup = cmd.suppressed_by ? `已抑制（${supMap[cmd.suppressed_by]||cmd.suppressed_by}）`
+                              : "未被抑制 · 直接生效";
+  $("supText").textContent = sup + (cmd.is_changed ? " · 本帧发生切换" : " · 与上帧一致");
+
+  // ---- 缺陷提示（D-10 / D-11）：修复后仍保留，作为回归哨兵 ----
+  const ratio = subj && subj.height_ratio != null ? subj.height_ratio : null;
+  const d10 = isD10(resp);
+  const corner = $("corner");
+  corner.style.display = "block";
+  const degLine = resp.degraded
+    ? `<span class="dg">degraded=${resp.degraded} · ${resp.degradation_reason||""}</span><br>`
+    : "";
+  const d10Line = d10
+    ? (ratio > D10_HOLD_HI
+        ? `<span class="rt">⚠ 缺陷复发：占比 ${ratio.toFixed(2)} 已超出保持上限 ${D10_HOLD_HI}，本应后退，却下发「靠近」——自相矛盾</span>`
+        : `<span class="rt">⚠ 缺陷复发：占比 ${ratio.toFixed(2)} 低于保持下限 ${D10_HOLD_LO}，却下发「靠近」</span>`)
+    : "";
+  corner.innerHTML =
+    `frame ${resp.frame_id} · t=${resp.timestamp_ms}ms · backend=${resp.backend||"—"}<br>`
+    + `subject_ratio=${ratio!=null?ratio.toFixed(3):"n/a"} · candidates=${comp.candidate_count??"—"}<br>`
+    + degLine + d10Line;
+
+  // ---- 网格徽标 ----
+  const chips = [];
+  const degCls = resp.degraded ? "danger" : "ok";
+  chips.push(`<span class="chip ${degCls}">${resp.degraded?"降级":"正常"}</span>`);
+  if(resp.degradation_reason)
+    chips.push(`<span class="chip danger">${resp.degradation_reason}</span>`);
+  // 距离层自己的建议，与 action 对照
+  const distAdvice = (resp.extras && resp.extras.distance_advice) || "";
+  if(distAdvice) chips.push(`<span class="chip">距离层：${distAdvice.slice(0,14)}</span>`);
+  chips.push(`<span class="chip info">来源 ${state.mode==="live"?"实时 API":"录制回放"}</span>`);
+  if(d10) chips.push(`<span class="chip warn">⚠ 缺陷复发</span>`);
+  $("mChips").innerHTML = chips.join("");
+
+  $("mAction").textContent = zh;
+  $("mMag").textContent = cmd.magnitude_text || "";
+  $("mAction").className = "big" + (cmd.action==="hold" ? "" : "");
+  $("mAction").style.color = cmd.action==="hold" ? "var(--ok)" : "var(--ink)";
+
+  // ---- 构图评分 ----
+  const sc = comp.composition_score ?? 0;
+  $("mScore").textContent = sc.toFixed(1);
+  $("mScore").style.color = `var(--${scoreClass(sc)})`;
+  $("mBest").textContent = (comp.best_score ?? 0).toFixed(1);
+  const pb = $("scoreBar").firstElementChild;
+  pb.style.width = Math.min(100, sc) + "%";
+  pb.className = scoreClass(sc);
+
+  const subs = comp.sub_scores || {};
+  const order = ["thirds","subject_scale","balance","headroom","lead_room","saliency_center","subject_center"];
+  $("mSubs").innerHTML = order.filter(k=>subs[k]!=null).map(k=>{
+    const v = subs[k];
+    const cls = v>=0.7?"ok":v>=0.4?"warn":"danger";
+    return `<div class="sub"><span class="n">${SUB_ZH[k]||k}</span>`
+      + `<span class="mb"><i class="${cls}" style="width:${(v*100).toFixed(0)}%;background:var(--${cls})"></i></span>`
+      + `<span class="vv">${v.toFixed(2)}</span></div>`;
+  }).join("") || `<div class="hint">无子项分值（未识别到主体）</div>`;
+
+  const pat = [];
+  if(comp.pattern) pat.push(`<span class="chip info">${PATTERN_ZH[comp.pattern]||comp.pattern_label||comp.pattern}</span>`);
+  if(comp.shot_size_label) pat.push(`<span class="chip">${comp.shot_size_label}</span>`);
+  pat.push(`<span class="chip">候选 ${comp.candidate_count ?? 0} 个</span>`);
+  (comp.rule_violations||[]).forEach(v=>{
+    pat.push(`<span class="chip ${v.severity==="error"?"danger":v.severity==="warn"?"warn":"info"}">${v.detail}</span>`);
+  });
+  $("mPatterns").innerHTML = pat.join("");
+
+  // ---- 延迟 ----
+  const tot = lat.total_ms || 0;
+  $("mTotal").textContent = ms(tot);
+  $("mPerc").textContent  = ms(lat.perception_ms);
+  $("mDec").textContent   = ms(lat.decision_ms);
+  $("mStab").textContent  = ms(lat.stabilization_ms);
+  const budget = 333.3, ratioB = tot / budget * 100;
+  $("mBudget").textContent = ratioB.toFixed(0) + "%";
+  const bb = $("budgetBar").firstElementChild;
+  bb.style.width = Math.min(100, ratioB) + "%";
+  bb.className = ratioB < 70 ? "ok" : ratioB < 100 ? "warn" : "danger";
+  $("latNote").innerHTML = state.mode === "live"
+    ? `实测值来自本机真实推理（含首次权重加载，<b>首帧会明显偏高</b>）。`
+    : `回放值来自录制时的真实响应；<b>首帧因权重加载偏高属正常</b>。`;
+
+  // ---- 解说 ----
+  if(resp.narration){
+    const n = $("mNarr");
+    n.style.display = "block";
+    $("mNarrEmpty").style.display = "none";
+    n.innerHTML = `<div class="h">${resp.narration.is_fallback?"模板兜底":"VLM 生成"} · ${resp.narration.model||"-"}</div>` + resp.narration.text;
+  } else {
+    $("mNarr").style.display = "block";
+    $("mNarrEmpty").style.display = "none";
+    $("mNarr").innerHTML = `<div class="h">示例解说（本样本集未录语言层）</div>${NARRATION_SAMPLE}`;
+  }
+
+  // ---- FPS ----
+  const now = performance.now();
+  if(state.lastFrameAt){
+    const dt = now - state.lastFrameAt;
+    $("fpsLabel").textContent = `帧间隔 ${dt.toFixed(0)}ms · ${(1000/dt).toFixed(1)} FPS`;
+  }
+  state.lastFrameAt = now;
+
+  renderTimeline();
+}
+
+/* =========================================================================
+   时间轴
+   ========================================================================= */
+function renderTimeline(){
+  if(!state.frames.length){ $("timeline").innerHTML=""; return; }
+  $("timeline").innerHTML = state.frames.map((f,i)=>{
+    const r = f.response, cmd = r.command||{};
+    let cls = "dot";
+    if(r.degraded) cls += " deg";
+    else if(cmd.action==="hold") cls += " hold";
+    if(i===state.idx-1) cls += " on";
+    const zh = (ACTION_ZH[cmd.action]||[cmd.action])[0];
+    const d10 = isD10(r);
+    return `<div class="${cls}" data-i="${i}" title="#${i+1} ${zh}${d10?" · ⚠ 缺陷复发":""}"
+      >${r.frame_id??i+1}</div>`;
+  }).join("");
+}
+
+/* =========================================================================
+   清空
+   ========================================================================= */
+function clearUI(){
+  $("overlay").querySelectorAll(".bb,.gridline,.arrow").forEach(e=>e.remove());
+  $("banner").style.display = "none";
+  $("corner").style.display = "none";
+  ["mAction","mScore","mTotal","mPerc","mDec","mStab","mBudget","fpsLabel","mBest"]
+    .forEach(i=>$(i).textContent = "—");
+  $("mMag").textContent = "";
+  $("mChips").innerHTML = ""; $("mSubs").innerHTML = ""; $("mPatterns").innerHTML = "";
+  $("scoreBar").firstElementChild.style.width = "0";
+  $("budgetBar").firstElementChild.style.width = "0";
+  $("mNarr").style.display = "none";
+  $("mNarrEmpty").style.display = "block";
+  state.lastFrameAt = 0;
+}
+
+/* =========================================================================
+   模式切换
+   ========================================================================= */
+function setMode(mode){
+  state.mode = mode;
+  stopPlay();
+  document.querySelectorAll("#modeSeg button").forEach(b=>
+    b.classList.toggle("on", b.dataset.mode === mode));
+
+  const isDemo = mode==="demo", isLive = mode==="live";
+  const on = isDemo || isLive;
+  ["btnPlay","btnFrame","btnPrev","btnReset"].forEach(i=>$(i).disabled = !on);
+  $("btnPick").disabled = !isLive;
+  $("stageEmpty").style.display = on ? "none" : "block";
+  $("canvas").style.display = on ? "block" : "none";
+  $("timeline").style.display = isDemo ? "flex" : "none";
+  $("knownCard").style.display = isDemo ? "block" : "none";
+
+  if(isDemo){
+    $("epLabel").textContent = "演示样本";
+    $("stageTag").textContent = "真实录制的后端响应回放";
+    const n = state.frames.length;
+    $("ctrlHint").innerHTML =
+      `演示模式回放 <b>${n}</b> 帧<b>真实录制的 API 响应</b>（非手写样本），` +
+      `<b>无需启动服务</b>。点「开始回放」按 3 FPS 推进，或用「下一帧/上一帧」逐帧查看。` +
+      ` <span style="color:#8a6212">左下卡片说明了本页主动暴露的已知缺陷。</span>`;
+    state.idx = 0; clearUI(); drawPlaceholder(); renderTimeline();
+  } else if(isLive){
+    $("epLabel").textContent = "本机 API";
+    $("stageTag").textContent = "联机模式 · 真实 API";
+    $("ctrlHint").innerHTML =
+      `先在项目根目录启动服务：<code>PYTHONPATH=src python -m aicg.cli serve --port 8010</code>，` +
+      `然后「选择本地图片…」批量上传，逐帧送往 <code>POST /v1/frame</code>。` +
+      `<br><b>注意</b>：本机 8000 端口常被其它项目占用，建议改用 8010 并相应修改页面里的 <code>API</code> 常量。`;
+    state.live = {sessionId:null, images:[], cursor:0};
+    clearUI(); drawPlaceholder();
+  } else {
+    $("epLabel").textContent = "待机";
+    $("stageTag").textContent = "未开始";
+    $("ctrlHint").textContent = "待机模式不发起任何请求。选择上方模式开始。";
+    clearUI(); drawPlaceholder();
+  }
+}
+
+/* =========================================================================
+   演示模式
+   ========================================================================= */
+function demoStep(dir){
+  if(!state.frames.length) return;
+  state.idx = (state.idx + dir + state.frames.length) % state.frames.length;
+  showFrame(state.idx);
+}
+async function showFrame(i){
+  const f = state.frames[i];
+  if(!f) return;
+  if(f.image_data_uri){
+    const ok = await paintImage(f.image_data_uri);
+    if(!ok) drawPlaceholder();
+  } else {
+    drawPlaceholder();
+  }
+  render(JSON.parse(JSON.stringify(f.response)));
+  state.idx = i + 1;
+  renderTimeline();
+}
+function startPlay(){
+  if(state.playing) return stopPlay();
+  state.playing = true;
+  $("btnPlay").textContent = "⏸ 暂停回放";
+  const tick = ()=>{
+    if(!state.playing) return;
+    if(state.mode==="demo") demoStep(1);
+    else if(state.mode==="live") liveStep();
+    state.timer = setTimeout(tick, 333);
+  };
+  tick();
+}
+function stopPlay(){
+  state.playing = false;
+  if(state.timer) clearTimeout(state.timer);
+  state.timer = null;
+  $("btnPlay").textContent = "▶ 开始回放";
+}
+
+/* =========================================================================
+   联机模式
+   ========================================================================= */
+// 注意：这里用当前页面 origin 之外的本机地址。若后端换端口，需同步修改。
+const API = `${location.protocol === "file:" ? "http:" : location.protocol}//${location.hostname || "127.0.0.1"}:8010/v1`;
+
+async function ensureSession(){
+  if(state.live.sessionId) return state.live.sessionId;
+  const r = await fetch(`${API}/session`, {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"});
+  if(!r.ok) throw new Error(`创建会话失败 HTTP ${r.status}`);
+  const j = await r.json();
+  state.live.sessionId = j.session_id;
+  return j.session_id;
+}
+async function fileToBase64(file){
+  const buf = await file.arrayBuffer();
+  let bin = "";
+  const bytes = new Uint8Array(buf), CH = 0x8000;
+  for(let i=0;i<bytes.length;i+=CH)
+    bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
+  return "data:" + (file.type||"image/jpeg") + ";base64," + btoa(bin);
+}
+async function liveStep(){
+  const L = state.live;
+  if(!L.images.length){
+    $("ctrlHint").innerHTML = `<span class="err">请先「选择本地图片…」。</span>`;
+    stopPlay(); return;
+  }
+  const item = L.images[L.cursor % L.images.length];
+  L.cursor++;
+  try{
+    const sid = await ensureSession();
+    const dataUri = await fileToBase64(item.file);
+    const bod = {
+      session_id: sid, frame_id: L.cursor, timestamp_ms: L.cursor*333,
+      image_ref: dataUri, persist_visual:false, enable_language:false,
+    };
+    const r = await fetch(`${API}/frame`, {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(bod)});
+    const j = await r.json();
+    if(!r.ok){
+      $("ctrlHint").innerHTML = `<span class="err">请求失败 HTTP ${r.status}：${j?.error?.message||JSON.stringify(j)}</span>`;
+      return;
+    }
+    // 用后端返回的图（若有）或原图作背景
+    const bg = j.image_data_uri || dataUri;
+    await paintImage(bg);
+    render(j);
+    $("stageTag").textContent = `联机模式 · 第 ${L.cursor} 帧`;
+  }catch(e){
+    stopPlay();
+    $("ctrlHint").innerHTML =
+      `<span class="err">无法连接后端：${e.message}。</span> 请确认已启动 ` +
+      `<code>PYTHONPATH=src python -m aicg.cli serve --port 8010</code>。` +
+      `<br>若页面是 <code>file://</code> 打开，浏览器会因 CORS 拒绝跨源请求；` +
+      `请改从服务地址打开（服务已同源挂载本页）。`;
+  }
+}
+
+/* =========================================================================
+   事件绑定
+   ========================================================================= */
+$("modeSeg").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  setMode(b.dataset.mode);
+});
+$("btnPlay").addEventListener("click", startPlay);
+$("btnFrame").addEventListener("click", ()=>{
+  if(state.mode==="demo") demoStep(1);
+  else if(state.mode==="live") liveStep();
+});
+$("btnPrev").addEventListener("click", ()=>{
+  if(state.mode==="demo") demoStep(-1);
+});
+$("btnReset").addEventListener("click", ()=>{
+  stopPlay();
+  state.idx = 0; state.live.cursor = 0;
+  clearUI(); drawPlaceholder(); renderTimeline();
+  if(state.mode==="live") $("stageTag").textContent = "联机模式 · 真实 API";
+  else $("stageTag").textContent = "真实录制的后端响应回放";
+});
+$("btnPick").addEventListener("click", ()=>{
+  if(state.mode!=="live"){
+    $("ctrlHint").innerHTML = '<span class="err">选择本地图片仅在联机模式可用。</span>';
+    return;
+  }
+  $("fileInput").click();
+});
+$("fileInput").addEventListener("change", e=>{
+  const files = Array.from(e.target.files||[]).filter(f=>f.type.startsWith("image/"));
+  if(!files.length) return;
+  state.live.images = files.map(f=>({file:f}));
+  state.live.cursor = 0;
+  $("ctrlHint").innerHTML =
+    `已载入 <b>${files.length}</b> 张图片，将循环送往后端。点击「开始回放」或「下一帧」。`;
+});
+$("timeline").addEventListener("click", e=>{
+  const d = e.target.closest(".dot"); if(!d) return;
+  stopPlay();
+  const i = +d.dataset.i;
+  showFrame(i).then(()=>{ state.idx = i+1; renderTimeline(); });
+});
+
+/* =========================================================================
+   启动：先尝试拉真实录制样本，失败则用内联兜底
+   ========================================================================= */
+async function boot(){
+  try{
+    const r = await fetch("samples/frames.json", {cache:"no-store"});
+    if(r.ok){
+      const arr = await r.json();
+      if(Array.isArray(arr) && arr.length){
+        state.frames = arr;
+        $("stageTag").textContent = `真实录制的后端响应回放（${arr.length} 帧）`;
+      }
+    }
+  }catch(e){ /* file:// 或不存在 → 用兜底 */ }
+  setMode("demo");
+  drawPlaceholder();
+  renderTimeline();
+}
+boot();
+</script>
+</body>
+</html>

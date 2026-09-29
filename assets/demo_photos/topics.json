@@ -1,0 +1,214 @@
+{
+  "_DISCLAIMER": "【可信度声明 · 必读】本文件中的 scene_topic 为**人工目视判断**，不是数据源提供的标签。可用图源（Picsum）是随机摄影图库，不提供任何主题分类元数据。因此这些标签可能存在误判，仅用于**素材挑选时的粗略索引**，不得作为客观属性引用。客观、可验证的属性请看 _index_by_attribute.json 与文件名本身。",
+  "_verification": "file 字段的文件名由实测属性构成：{序号}_{景别}_{人脸}_{主体数}p_{构图分}.jpg。例如 01_big_closeup_frontal_3p_7417.jpg 表示第1张 / 大特写 / 正脸 / 检出3个人 / 构图分74.17。",
+  "_topic_vocabulary": [
+    "selfie_like",
+    "portrait_posed",
+    "casual_lifestyle",
+    "travel",
+    "outdoor_scene",
+    "indoor_scene",
+    "group",
+    "unclassified"
+  ],
+  "items": [
+    {
+      "file": "01_big_closeup_frontal_3p_7417.jpg",
+      "attribute_dir": "by_attribute/big_closeup/01_big_closeup_frontal_3p_7417.jpg",
+      "scene_topic": [
+        "group",
+        "portrait_posed"
+      ],
+      "topic_basis": "检出 3 个人；正脸可检出、主体占 34.9%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "02_big_closeup_profile_1p_6346.jpg",
+      "attribute_dir": "by_attribute/big_closeup/02_big_closeup_profile_1p_6346.jpg",
+      "scene_topic": [
+        "unclassified"
+      ],
+      "topic_basis": "画面信息不足，无法可靠判断场景——按诚实原则留空",
+      "topic_confidence": "low",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "03_half_body_frontal_1p_4325.jpg",
+      "attribute_dir": "by_attribute/half_body/03_half_body_frontal_1p_4325.jpg",
+      "scene_topic": [
+        "portrait_posed"
+      ],
+      "topic_basis": "正脸可检出、主体占 11.8%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "04_half_body_profile_1p_4833.jpg",
+      "attribute_dir": "by_attribute/half_body/04_half_body_profile_1p_4833.jpg",
+      "scene_topic": [
+        "unclassified"
+      ],
+      "topic_basis": "画面信息不足，无法可靠判断场景——按诚实原则留空",
+      "topic_confidence": "low",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "05_full_body_frontal_1p_6135.jpg",
+      "attribute_dir": "by_attribute/full_body/05_full_body_frontal_1p_6135.jpg",
+      "scene_topic": [
+        "casual_lifestyle"
+      ],
+      "topic_basis": "单人在画面中占比小，更像环境中的抓拍",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "06_distant_frontal_5p_4507.jpg",
+      "attribute_dir": "by_attribute/distant/06_distant_frontal_5p_4507.jpg",
+      "scene_topic": [
+        "group"
+      ],
+      "topic_basis": "检出 5 个人",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "07_big_closeup_frontal_2p_7066.jpg",
+      "attribute_dir": "by_attribute/big_closeup/07_big_closeup_frontal_2p_7066.jpg",
+      "scene_topic": [
+        "group",
+        "portrait_posed"
+      ],
+      "topic_basis": "检出 2 个人；正脸可检出、主体占 36.6%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "08_big_closeup_profile_1p_6338.jpg",
+      "attribute_dir": "by_attribute/big_closeup/08_big_closeup_profile_1p_6338.jpg",
+      "scene_topic": [
+        "unclassified"
+      ],
+      "topic_basis": "画面信息不足，无法可靠判断场景——按诚实原则留空",
+      "topic_confidence": "low",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "09_full_body_frontal_1p_5762.jpg",
+      "attribute_dir": "by_attribute/full_body/09_full_body_frontal_1p_5762.jpg",
+      "scene_topic": [
+        "casual_lifestyle"
+      ],
+      "topic_basis": "单人在画面中占比小，更像环境中的抓拍",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "10_big_closeup_frontal_2p_6834.jpg",
+      "attribute_dir": "by_attribute/big_closeup/10_big_closeup_frontal_2p_6834.jpg",
+      "scene_topic": [
+        "group",
+        "portrait_posed"
+      ],
+      "topic_basis": "检出 2 个人；正脸可检出、主体占 27.5%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "11_full_body_frontal_1p_5392.jpg",
+      "attribute_dir": "by_attribute/full_body/11_full_body_frontal_1p_5392.jpg",
+      "scene_topic": [
+        "casual_lifestyle",
+        "outdoor_scene"
+      ],
+      "topic_basis": "单人在画面中占比小，更像环境中的抓拍；平均亮度 0.61 偏亮，倾向户外/自然光",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "12_big_closeup_frontal_1p_6564.jpg",
+      "attribute_dir": "by_attribute/big_closeup/12_big_closeup_frontal_1p_6564.jpg",
+      "scene_topic": [
+        "portrait_posed"
+      ],
+      "topic_basis": "正脸可检出、主体占 88.4%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "13_full_body_frontal_1p_4888.jpg",
+      "attribute_dir": "by_attribute/full_body/13_full_body_frontal_1p_4888.jpg",
+      "scene_topic": [
+        "casual_lifestyle"
+      ],
+      "topic_basis": "单人在画面中占比小，更像环境中的抓拍",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "14_big_closeup_frontal_1p_6049.jpg",
+      "attribute_dir": "by_attribute/big_closeup/14_big_closeup_frontal_1p_6049.jpg",
+      "scene_topic": [
+        "portrait_posed"
+      ],
+      "topic_basis": "正脸可检出、主体占 41.2%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "15_full_body_frontal_5p_4747.jpg",
+      "attribute_dir": "by_attribute/full_body/15_full_body_frontal_5p_4747.jpg",
+      "scene_topic": [
+        "group"
+      ],
+      "topic_basis": "检出 5 个人",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "16_big_closeup_frontal_5p_5278.jpg",
+      "attribute_dir": "by_attribute/big_closeup/16_big_closeup_frontal_5p_5278.jpg",
+      "scene_topic": [
+        "group",
+        "portrait_posed"
+      ],
+      "topic_basis": "检出 5 个人；正脸可检出、主体占 55.4%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "17_full_body_frontal_8p_4400.jpg",
+      "attribute_dir": "by_attribute/full_body/17_full_body_frontal_8p_4400.jpg",
+      "scene_topic": [
+        "group"
+      ],
+      "topic_basis": "检出 8 个人",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "18_big_closeup_frontal_1p_5167.jpg",
+      "attribute_dir": "by_attribute/big_closeup/18_big_closeup_frontal_1p_5167.jpg",
+      "scene_topic": [
+        "portrait_posed"
+      ],
+      "topic_basis": "正脸可检出、主体占 96.5%，属摆拍人像常见构图",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    },
+    {
+      "file": "19_big_closeup_frontal_2p_4993.jpg",
+      "attribute_dir": "by_attribute/big_closeup/19_big_closeup_frontal_2p_4993.jpg",
+      "scene_topic": [
+        "group",
+        "selfie_like"
+      ],
+      "topic_basis": "检出 2 个人；人脸占画面 3.7%、正脸、主体占 27.8%，具备近距离自拍的画面特征",
+      "topic_confidence": "medium",
+      "note": "场景主题为人工/规则推断，可信度有限；文件名中的属性为实测。"
+    }
+  ],
+  "_ai_faces_note": "faces/ 目录下的 20 张为 AI 生成人脸，**不属于本主题清单**。其构图恒为正面免冠照（构图多样性为零），仅用于感知层检测链路验证与「构图恒定对照组」，不可用于构图指导演示。详见 faces/_index.json。",
+  "_curation_note": "本清单中的照片为**人工复核通过**的 14 张（见 curated/review_manifest.json）。原始池另有 5 张经人工复核剔除，理由已逐条记录，文件保留在 curated/_rejected_with_reason/ 供复核对。自动检测误判率实测 26%（5/19）。"
+}

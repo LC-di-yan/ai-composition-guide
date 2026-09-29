@@ -1,0 +1,291 @@
+{
+  "_generated_by": "scripts/curate_demo_assets.py",
+  "_review_note": "本清单为**人工目视复核**结果，非自动检测。自动检测误判率实测 37%（7/19），因此不可省略人工复核。",
+  "_reviewed_at": "2026-09-28",
+  "_contact_sheet": "outputs/reports/demo_photos_contact_sheet.png",
+  "kept": [
+    {
+      "file": "01_big_closeup_frontal_3p_7417.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 3,
+      "subject_area_ratio": 0.349,
+      "composition_score": 74.17,
+      "author": "London Scout",
+      "source_page": "https://unsplash.com/photos/mE9DC6I1_8I",
+      "review_reason": "城市街头，女性与女童互动、花丛与斑马线，自然光柔和。检出3人，主体占34.9%，构图分74.2（本批最高）。典型『生活打卡』画面。",
+      "scene_topic_manual": [
+        "casual_lifestyle",
+        "group",
+        "outdoor_scene"
+      ]
+    },
+    {
+      "file": "02_big_closeup_profile_1p_6346.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "profile",
+      "n_person": 1,
+      "subject_area_ratio": 0.3331,
+      "composition_score": 63.46,
+      "author": "Abigail  Keenan",
+      "source_page": "https://unsplash.com/photos/8jqna7aA-vs",
+      "review_reason": "女性骑自行车于山地公路上，侧脸，户外金光。构图简洁、留白充足，适合讲『三分法 + 视线方向留白』。典型『旅行留念』。",
+      "scene_topic_manual": [
+        "travel",
+        "outdoor_scene",
+        "portrait_posed"
+      ]
+    },
+    {
+      "file": "05_full_body_frontal_1p_6135.jpg",
+      "shot_class": "full_body",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.0677,
+      "composition_score": 61.35,
+      "author": "Thong Vo",
+      "source_page": "https://unsplash.com/photos/g28MgVK85bQ",
+      "review_reason": "女性全身在户外山景中行进，正脸可辨，主体占6.8%。适合讲『远景全身 + 主体偏小』的构图问题。",
+      "scene_topic_manual": [
+        "travel",
+        "outdoor_scene"
+      ]
+    },
+    {
+      "file": "06_distant_frontal_5p_4507.jpg",
+      "shot_class": "distant",
+      "face_kind": "frontal",
+      "n_person": 5,
+      "subject_area_ratio": 0.0176,
+      "composition_score": 45.07,
+      "author": "Adam Przewoski",
+      "source_page": "https://unsplash.com/photos/umchkHwkdyM",
+      "review_reason": "栈桥/观景台处逆光人影，检出5人，主体占1.8%。**仅可用于『远景点主体过小』的降级示例**，不宜作为正向演示。",
+      "scene_topic_manual": [
+        "travel",
+        "outdoor_scene",
+        "group"
+      ]
+    },
+    {
+      "file": "07_big_closeup_frontal_2p_7066.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 2,
+      "subject_area_ratio": 0.3662,
+      "composition_score": 70.66,
+      "author": "London Scout",
+      "source_page": "https://unsplash.com/photos/4-gFGb12hFA",
+      "review_reason": "女性与儿童相拥于石板路，正脸清晰，主体占36.6%，构图分70.7。光线通透，是『他拍人像』的优质样本。",
+      "scene_topic_manual": [
+        "portrait_posed",
+        "group",
+        "casual_lifestyle"
+      ]
+    },
+    {
+      "file": "08_big_closeup_profile_1p_6338.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "profile",
+      "n_person": 1,
+      "subject_area_ratio": 0.406,
+      "composition_score": 63.38,
+      "author": "Eutah Mizushima",
+      "source_page": "https://unsplash.com/photos/2TlAsvhqiL0",
+      "review_reason": "女性侧脸特写，主体占40.6%，构图分63.4，平均亮度0.70（明亮通透）。适合讲『大特写的裁切位置与头顶留白』。",
+      "scene_topic_manual": [
+        "selfie_like",
+        "portrait_posed"
+      ]
+    },
+    {
+      "file": "09_full_body_frontal_1p_5762.jpg",
+      "shot_class": "full_body",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.0437,
+      "composition_score": 57.62,
+      "author": "Matthew Wiebe",
+      "source_page": "https://unsplash.com/photos/v41pwp_RRJU",
+      "review_reason": "女性全身在人行道上，构图分57.6，主体占4.4%。适合讲『全身景别 + 环境交代』。",
+      "scene_topic_manual": [
+        "casual_lifestyle",
+        "outdoor_scene"
+      ]
+    },
+    {
+      "file": "10_big_closeup_frontal_2p_6834.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 2,
+      "subject_area_ratio": 0.2746,
+      "composition_score": 68.34,
+      "author": "Gonzalo Poblete",
+      "source_page": "https://unsplash.com/photos/C1tnzdAmPE8",
+      "review_reason": "双人近景（女性为主体），正脸，主体占27.5%，构图分68.3。",
+      "scene_topic_manual": [
+        "portrait_posed",
+        "group"
+      ]
+    },
+    {
+      "file": "11_full_body_frontal_1p_5392.jpg",
+      "shot_class": "full_body",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.0453,
+      "composition_score": 53.92,
+      "author": "Jeff Sheldon",
+      "source_page": "https://unsplash.com/photos/eOLpJytrbsQ",
+      "review_reason": "女性全身，平均亮度0.61，正脸可辨，构图分53.9。画面干净。",
+      "scene_topic_manual": [
+        "casual_lifestyle",
+        "outdoor_scene"
+      ]
+    },
+    {
+      "file": "12_big_closeup_frontal_1p_6564.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.8845,
+      "composition_score": 65.64,
+      "author": "Matthew Wiebe",
+      "source_page": "https://unsplash.com/photos/U5rMrSI7Pn4",
+      "review_reason": "**主体占比 88.4%（本批最高）**，构图分65.6。可作『主体过满、留白不足』的极端案例，也验证大占比打分行为。",
+      "scene_topic_manual": [
+        "selfie_like",
+        "portrait_posed"
+      ]
+    },
+    {
+      "file": "13_full_body_frontal_1p_4888.jpg",
+      "shot_class": "full_body",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.0334,
+      "composition_score": 48.88,
+      "author": "Biegun Wschodni",
+      "source_page": "https://unsplash.com/photos/vD3L-rN_qNw",
+      "review_reason": "女性全身，主体占3.3%，构图分48.9。与 #5 构成景别梯度。",
+      "scene_topic_manual": [
+        "travel",
+        "outdoor_scene"
+      ]
+    },
+    {
+      "file": "14_big_closeup_frontal_1p_6049.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 1,
+      "subject_area_ratio": 0.4116,
+      "composition_score": 60.49,
+      "author": "Lacey Raper",
+      "source_page": "https://unsplash.com/photos/ey1Obz7I2fw",
+      "review_reason": "女性近景，主体占41.2%，**清晰度最高（sharp=5378）**，构图分60.5。画质优秀，适合做演示主图。",
+      "scene_topic_manual": [
+        "selfie_like",
+        "portrait_posed"
+      ]
+    },
+    {
+      "file": "16_big_closeup_frontal_5p_5278.jpg",
+      "shot_class": "big_closeup",
+      "face_kind": "frontal",
+      "n_person": 5,
+      "subject_area_ratio": 0.5538,
+      "composition_score": 52.78,
+      "author": "Steven Lewis",
+      "source_page": "https://unsplash.com/photos/r4He4Btlsro",
+      "review_reason": "多人近景（检出5人），正脸，主体占55.4%。适合讲『多主体场景下的主次关系』。",
+      "scene_topic_manual": [
+        "group",
+        "casual_lifestyle"
+      ]
+    },
+    {
+      "file": "17_full_body_frontal_8p_4400.jpg",
+      "shot_class": "full_body",
+      "face_kind": "frontal",
+      "n_person": 8,
+      "subject_area_ratio": 0.0468,
+      "composition_score": 44.0,
+      "author": "David Marcu",
+      "source_page": "https://unsplash.com/photos/JZXAr--Qdf4",
+      "review_reason": "**检出8人（本批最多）**，街头人群，主体占4.7%。适合讲『多主体干扰下的构图决策』。",
+      "scene_topic_manual": [
+        "group",
+        "outdoor_scene"
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "file": "03_half_body_frontal_1p_4325.jpg",
+      "auto_detected_as": "frontal / 1p / area=0.118",
+      "auto_composition_score": 43.25,
+      "reject_reason": "【剔除】运动模糊严重（sharp=340，画面中人物与自行车均拖影），不满足『画面自然真实、构图与光线良好』。"
+    },
+    {
+      "file": "04_half_body_profile_1p_4833.jpg",
+      "auto_detected_as": "profile / 1p / area=0.102",
+      "auto_composition_score": 48.33,
+      "reject_reason": "【剔除】实际为**室内静物/空间**（吊灯与窗），画面中无人物。YOLO 将物体误判为 person，属自动检测假阳性。"
+    },
+    {
+      "file": "15_full_body_frontal_5p_4747.jpg",
+      "auto_detected_as": "frontal / 5p / area=0.088",
+      "auto_composition_score": 47.47,
+      "reject_reason": "【剔除】场景为室内餐饮空间，主体人物为**男性背影**（服务员），与『女生拍照』主题及『人物可辨识』要求均不符。"
+    },
+    {
+      "file": "18_big_closeup_frontal_1p_5167.jpg",
+      "auto_detected_as": "frontal / 1p / area=0.965",
+      "auto_composition_score": 51.67,
+      "reject_reason": "【剔除】主体占比 96.5%，画面几乎只剩衣物/皮肤纹理，**人物形态不可辨识**，无构图信息，不适合演示。"
+    },
+    {
+      "file": "19_big_closeup_frontal_2p_4993.jpg",
+      "auto_detected_as": "frontal / 2p / area=0.278",
+      "auto_composition_score": 49.93,
+      "reject_reason": "【剔除】俯拍只拍到**双腿与脚**（悬于高楼外），属局部肢体而非完整人像，与『人物可辨识』要求不符。"
+    }
+  ],
+  "additional_false_positives_seen_earlier": [
+    {
+      "desc": "一串葡萄（静物）",
+      "detected_as": "person + 人脸误报",
+      "why_bad": "非人像"
+    },
+    {
+      "desc": "办公桌上的音箱与桌面（静物）",
+      "detected_as": "person",
+      "why_bad": "非人像"
+    },
+    {
+      "desc": "黑白室内空间（建筑）",
+      "detected_as": "person",
+      "why_bad": "非人像"
+    },
+    {
+      "desc": "男乐手弹吉他（舞台）",
+      "detected_as": "person + frontal",
+      "why_bad": "男性，不符『女生拍照』主题"
+    },
+    {
+      "desc": "树林中只拍到大腿与靴子",
+      "detected_as": "person",
+      "why_bad": "局部肢体，人物不可辨识"
+    },
+    {
+      "desc": "雪山草原远景（人物极小）",
+      "detected_as": "person",
+      "why_bad": "风景为主，不适合人像演示"
+    },
+    {
+      "desc": "酒吧男服务员背影",
+      "detected_as": "person + frontal",
+      "why_bad": "男性背影，不符主题"
+    }
+  ]
+}

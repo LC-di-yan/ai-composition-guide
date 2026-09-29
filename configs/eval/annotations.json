@@ -1,0 +1,33 @@
+{
+  "source_note": "【构造式标注，非主观人工评分】由同一张真实照片（ultralytics 自带 zidane.jpg，Apache-2.0）裁切出 5 种不同构图质量，人工分依据明确可复述的构图原则给定：三分点对齐、头顶留白是否被切、主体占比是否过小。这类标注适合验证评估脚本本身正确、以及检查评分器是否与构图学原则同向，但不代表真人审美偏好，样本量亦远不足以支撑统计结论。",
+  "annotation_method": "rule_based_construction",
+  "is_subjective_human_rating": false,
+  "known_limitation": "【已实测暴露的构造缺陷，如实记录】本标注集有两处不可回避的局限，解读 SRCC 时必须同时看：(1) 裁切构造出的 5 张图中，无论是「主体过小」(E) 还是「主体贴边」(D)，YOLO 仍然把可见的人体扩张到接近整幅画面（实测各图主体框高均约 0.70、宽 0.95~1.00），于是 subject_scale 子项对全部样本都判 1.00——也就是说，本标注集想验证的「主体占比」这一维度，在感知层就被抹平了，SRCC 实际上主要反映 thirds/balance/headroom 三个位置维度的一致性，而非构图全体。(2) 评测用的是裁切图（静态单帧），与人像摄影真实场景（主体随距离连续变化）分布不同。要做到有效结论，需要 30+ 张真实拍摄、主体占比自然分布的有标注图像（CADB / AVA 等公开集，或多人标注）。",
+  "items": [
+    {
+      "image": "configs/eval/images/A_thirds_right.jpg",
+      "human_score": 88,
+      "note": "主体落在右三分点，头顶留白约 12%，无明显贴边。符合三分法+合理留白。"
+    },
+    {
+      "image": "configs/eval/images/B_thirds_left.jpg",
+      "human_score": 86,
+      "note": "主体落在左三分点，构图与 A 镜像等价，质量同级。"
+    },
+    {
+      "image": "configs/eval/images/C_center.jpg",
+      "human_score": 72,
+      "note": "主体居中且留白合理。中心构图是合规但较保守的选择，故低于三分法。"
+    },
+    {
+      "image": "configs/eval/images/D_edge.jpg",
+      "human_score": 34,
+      "note": "主体严重贴右边缘、头顶被切掉一部分。违反留白与平衡原则，属明显缺陷。"
+    },
+    {
+      "image": "configs/eval/images/E_tiny.jpg",
+      "human_score": 40,
+      "note": "主体占比过小、画面大量无意义空白。景别失当。"
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+# AI 实时构图指导 Agent —— 本地编排
+#
+# 用法::
+#
+#     # 只跑 API 服务（CPU、规则后端兜底，镜像约 1.2GB）
+#     docker compose -f docker/docker-compose.yml up api
+#
+#     # 跑录屏 Demo（挂载本地测试素材）
+#     docker compose -f docker/docker-compose.yml run --rm demo
+#
+#     # 启用 GPU 推理（需宿主机有 nvidia-container-toolkit）
+#     docker compose -f docker/docker-compose.yml --profile gpu up api-gpu
+#
+version: "3.9"
+
+services:
+  # -------------------------------------------------------------------------
+  # CPU 版 API 服务（默认）
+  # -------------------------------------------------------------------------
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        WITH_MODEL: "0"
+    image: aicg:0.1.0-cpu
+    container_name: aicg-api
+    ports:
+      - "8000:8000"
+    environment:
+      AICG_ENV: "prod"
+      AICG_LOG_LEVEL: "INFO"
+      # --- 语言层（可选）---
+      # 不配置则自动走模板兜底，流程不受影响（NFR-E3 / NFR-R1）
+      AICG_VLM_API_KEY: "${AICG_VLM_API_KEY:-}"
+      AICG_VLM_BASE_URL: "${AICG_VLM_BASE_URL:-}"
+    volumes:
+      # 产物持久化（容器内为只读代码，仅挂可写目录）
+      - ../outputs:/app/outputs
+      # 权重目录：放入 yolov8n-seg.pt 即可让感知层自动升级
+      - ../models:/app/models:ro
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # 录屏 Demo：一次性任务
+  # -------------------------------------------------------------------------
+  demo:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        WITH_MODEL: "0"
+    image: aicg:0.1.0-cpu
+    container_name: aicg-demo
+    environment:
+      AICG_ENV: "prod"
+      AICG_LOG_LEVEL: "INFO"
+    volumes:
+      - ../outputs:/app/outputs
+      - ../models:/app/models:ro
+      # 注：`tests/fixtures` 已随镜像 COPY 进去（见 Dockerfile），
+      # 无需再挂载。要换成自己的素材时再显式挂载覆盖。
+    # 用合成素材跑一遍引导循环 + 防抖对照，产出指标 JSON
+    command: >
+      python scripts/run_demo.py
+      --source tests/fixtures/handheld_jitter.mp4
+      --compare
+    restart: "no"
+
+  # -------------------------------------------------------------------------
+  # GPU 版 API（需 nvidia-container-toolkit）
+  # -------------------------------------------------------------------------
+  api-gpu:
+    profiles: ["gpu"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        # 注意：CPU 版 Dockerfile 装的是 CPU torch。
+        # 真正用 GPU 时应改用 nvidia/cuda 基础镜像并安装 cu 版 torch，
+        # 见 README「GPU 部署」小节。
+        WITH_MODEL: "1"
+    image: aicg:0.1.0-gpu
+    container_name: aicg-api-gpu
+    ports:
+      - "8001:8000"
+    environment:
+      AICG_ENV: "prod"
+      AICG_LOG_LEVEL: "INFO"
+      AICG_DEVICE: "cuda"
+      AICG_VLM_API_KEY: "${AICG_VLM_API_KEY:-}"
+    volumes:
+      - ../outputs:/app/outputs
+      - ../models:/app/models:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # 测试：CI 与本地验证共用
+  # -------------------------------------------------------------------------
+  test:
+    profiles: ["test"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        WITH_MODEL: "0"
+        WITH_TEST: "1"      # ← 必须：镜像默认不含 pytest
+    image: aicg:0.1.0-test
+    container_name: aicg-test
+    # 注：镜像已 COPY 了 tests/，此处**不再挂载覆盖**（挂载会遮蔽镜像内
+    # 的测试代码，导致"测的不是镜像里的那份"）。要测本地改动时，
+    # 显式用 -v 覆盖即可。
+    command: python -m pytest tests/ -q
+    restart: "no"

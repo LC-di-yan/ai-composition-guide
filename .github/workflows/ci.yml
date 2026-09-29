@@ -1,0 +1,103 @@
+name: CI
+
+# 为什么拆成两个 job：
+#   1. `gate`（秒级、零重依赖）→ 文档口径 + Docker 静态校验。
+#      这两项纯粹是"声明与事实一致性"检查，不碰模型/GPU，任何环境都能跑。
+#      它们放在最前面，是为了让最廉价的检查最先失败。
+#   2. `test`（较慢）→ 全量 pytest + 轻量验收（延迟/抖动，跳过 SRCC）。
+#      SRCC 需要 torch 与模型权重，在无 GPU 的 CI runner 上代价过高，
+#      因此用 `--quick` 跳过，只保证"链路可用 + 指标不退化"。
+#
+# 关键设计：**镜像化验收的口径与本地完全一致**——都调用
+# scripts/acceptance_report.py，任何一项 FAIL 即非零退出码。
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # 同一分支的旧运行自动取消，避免排队浪费
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =========================================================================
+  # Job 1：零依赖门禁（秒级）
+  # =========================================================================
+  gate:
+    name: 静态门禁（文档口径 + Docker 编排）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # 这两个脚本刻意只依赖标准库 —— 所以这里**不装任何第三方包**。
+      # 若某天它们开始 import 三方库，这里会立刻失败，提醒保持轻量。
+      - name: 文档口径一致性（死链 + 易漂移事实取值）
+        run: python scripts/check_doc_consistency.py
+
+      - name: Docker 编排静态校验（不构建镜像）
+        run: python scripts/check_docker_static.py --verbose
+
+  # =========================================================================
+  # Job 2：测试 + 轻量验收
+  # =========================================================================
+  test:
+    name: 测试与验收
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      # 只装运行 + 测试必需依赖，**不装 ultralytics/torch**：
+      # CI 上用 rule 后端即可完整验证链路（感知降级本来就是设计的一部分）。
+      # 这也顺带证明了「无模型权重时系统依然可用」这一承诺。
+      - name: 安装依赖（不含 torch/ultralytics）
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            "numpy>=1.26,<3.0" \
+            "opencv-python-headless>=4.9" \
+            "pydantic>=2.6,<3.0" \
+            "PyYAML>=6.0" \
+            "loguru>=0.7" \
+            "fastapi>=0.110" \
+            "uvicorn[standard]>=0.29" \
+            "python-multipart>=0.0.9" \
+            "httpx>=0.27" \
+            "pytest>=8.0"
+
+      - name: 生成测试夹具（纯本地合成，无网络依赖）
+        run: python scripts/make_fixtures.py
+
+      - name: 全量测试
+        run: python -m pytest -q --junit-xml=test-report.xml
+
+      - name: 轻量验收（延迟 + 抖动；跳过需模型的 SRCC）
+        run: python scripts/acceptance_report.py --quick
+
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: |
+            test-report.xml
+            outputs/reports/acceptance_*.json
+            outputs/reports/benchmark_*.json
+            outputs/reports/debounce_*.json
+          if-no-files-found: warn
+          retention-days: 14

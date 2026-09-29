@@ -1,0 +1,21 @@
+{
+  "source": "真实 API 响应录制（非手写样本）",
+  "how": "python scripts/record_web_samples.py",
+  "api": "POST http://127.0.0.1:8010/v1/frame",
+  "backend_perception": "yolo",
+  "language_recorded": false,
+  "frames": 10,
+  "assets": [
+    "10_outdoor_853x1280_cdn.jpg",
+    "28_travel_960x638_cdn.jpg",
+    "20_street_960x657_cdn.jpg",
+    "14_selfie_960x1280_cdn.jpg",
+    "23_street_1280x1024_cdn.jpg",
+    "24_street_900x720_cdn.jpg",
+    "27_travel_1280x857_cdn.jpg",
+    "25_street_1280x976_cdn.jpg",
+    "18_street_1280x1239_cdn.jpg",
+    "21_street_986x1280_cdn.jpg"
+  ],
+  "note": "回放样本与联机响应同源同构；页面渲染只有一条代码路径。"
+}
