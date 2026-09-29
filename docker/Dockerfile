@@ -89,6 +89,10 @@ COPY --from=builder /install /usr/local
 WORKDIR /app
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser configs/ ./configs/
+# Web 演示页（仅 1.8MB）：让容器成为"页面 + API 同源"的完整演示单元。
+# 缺了它，_mount_web 按设计静默跳过挂载，`GET /` 返回 404——
+# CI 真实构建首跑（run 36532152843）烟测抓到的第三个盲区缺陷。
+COPY --chown=appuser:appuser web/ ./web/
 COPY --chown=appuser:appuser scripts/ ./scripts/
 COPY --chown=appuser:appuser tests/ ./tests/
 COPY --chown=appuser:appuser pyproject.toml README.md ./

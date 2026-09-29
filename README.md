@@ -1,8 +1,10 @@
 # AI 实时构图指导 Agent
 
+[![CI](https://github.com/LC-di-yan/ai-composition-guide/actions/workflows/ci.yml/badge.svg)](https://github.com/LC-di-yan/ai-composition-guide/actions/workflows/ci.yml)
+
 > 一套"能看画面 → 判断构图 → 说人话给建议 → 拍后精修"的实时多模态 Agent 系统。
 >
-> 文档状态：**M3 已交付 v0.3.0**　最后更新：2026-09-28　维护者：林灿
+> 文档状态：**M3 已交付 v0.3.0**　最后更新：2026-09-29　维护者：林灿
 
 ---
 
