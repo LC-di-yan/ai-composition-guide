@@ -5,9 +5,11 @@
 :class:`~aicg.retrieval.search.CaseSearchService` 转成 ``200 + degraded``。
 这是"运行类问题不 5xx"（NFR-R1）在依赖层面的第一道落实。
 
-**度量契约**：HNSW + COSINE。Milvus 对 COSINE 返回的 ``distance =
-1 - 相似度``（越小越相似），故 ``similarity = clamp(1 - distance, 0, 1)``，
-与接口契约 ``CaseSearchResult.similarity ∈ [0,1]`` 对齐。
+**度量契约**：HNSW + COSINE。相似度**由本模块按余弦定义本地重算**，
+不直接采信服务端 ``distance`` 字段——实测同一套 COSINE 检索在不同服务端上
+该字段语义并不一致（详见 :meth:`MilvusStore._cosine_similarity`）。
+本地重算后统一裁剪到 ``[0,1]``，与接口契约
+``CaseSearchResult.similarity ∈ [0,1]`` 对齐，并按降序返回。
 
 **为什么用 MilvusClient 而非 ORM 连接**：pymilvus 2.5 的 ``MilvusClient``
 是官方推荐的新 API，单连接对象即含 collection CRUD 与 search，无需
@@ -20,6 +22,8 @@ import importlib
 import os
 from dataclasses import dataclass, field
 from typing import Any
+
+import numpy as np
 
 from ..observability import get_logger
 from .features import DIM, DIM_NAMES
@@ -271,31 +275,71 @@ class MilvusStore:
                 limit=top_k,
                 filter=expr or None,
                 search_params={"metric_type": "COSINE", "params": {"ef": self.cfg.ef}},
-                output_fields=["case_id", "image_ref", "pattern", "scene_tags", "description"],
+                output_fields=["case_id", "image_ref", "pattern", "scene_tags", "description", "vector"],
                 timeout=self.cfg.timeout_s,
             )
         except Exception as exc:  # noqa: BLE001
             raise StoreError("search_failed", f"检索失败: {exc}") from exc
 
         out: list[dict[str, Any]] = []
-        # MilvusClient.search 返回形如 [[{id, distance, entity}, ...]]（单查询 → 外层 1 条）
+        query = np.asarray(vector, dtype=np.float32)
         for hit in (res[0] if res else []):
             entity = hit.get("entity") or {}
             distance = float(hit.get("distance", 0.0))
-            similarity = 1.0 - distance
-            # COSINE 的 1-sim 在 [-1, 2] 理论区间；契约只收 [0,1]，负值裁 0
-            similarity = 0.0 if similarity < 0.0 else (1.0 if similarity > 1.0 else similarity)
+            stored = entity.get("vector")
+            similarity = self._cosine_similarity(query, stored, distance)
             out.append(
                 {
                     "case_id": entity.get("case_id", str(hit.get("id", ""))),
                     "image_ref": entity.get("image_ref", ""),
-                    "similarity": round(similarity, 4),
+                    "similarity": similarity,
                     "pattern": entity.get("pattern", "unknown"),
                     "scene_tags": list(entity.get("scene_tags") or []),
                     "description": entity.get("description") or None,
                 }
             )
+        # 契约要求按相似度降序。改成本地排序是因为实测发现：同为一种 COSINE
+        # 检索，不同服务端对 distance 字段的**语义口径不一致**（见
+        # _cosine_similarity 注释），顺序不能完全信任；排序是交付契约的一部分，
+        # 由我们自己保证。
+        out.sort(key=lambda r: r["similarity"], reverse=True)
         return out
+
+    @staticmethod
+    def _cosine_similarity(query: np.ndarray, stored: Any, distance: float) -> float:
+        """按余弦定义**本地重算**相似度，不依赖服务端 ``distance`` 字段口径。
+
+        为什么要自己算：实测同一套 COSINE 检索，不同服务端返回的 ``distance``
+        语义不一致——
+
+        * Milvus Standalone 与 Lite 3.0：``distance = 1 - 相似度``（越小越像）；
+        * **Lite 3.2.1：直接把相似度放进 ``distance``**（越大越像）。
+
+        后者会让"自身向量"的报告值变成 **0.0**（`1 - 1 = 0`），CI job
+        `retrieval` 首跑就是撞在这里。若继续按单一口径解读，同一份代码在不同
+        环境会给出**方向相反**的相似度——这不是 bug 报告里那种小错，是语义翻转。
+
+        因此：取回入库向量并在本地算余弦，结果只取决于**我们自己的定义**。
+        ``distance`` 保留用于**观测**：若它与本地余弦明显不符，记一条 WARNING，
+        便于将来有人追"为什么服务端数字不一样"。
+        """
+        sim: float | None = None
+        if stored is not None:
+            v = np.asarray(stored, dtype=np.float32)
+            denom = float(np.linalg.norm(query) * np.linalg.norm(v))
+            if denom > 0:
+                sim = float(np.dot(query, v) / denom)
+        if sim is None:
+            # 拿不到向量才退回服务端口径（并约定 httpx 语义：cos →[0,1]）
+            sim = 1.0 - distance
+        if abs(sim - (1.0 - distance)) > 0.05 and abs(sim - distance) > 0.05:
+            log.warning(
+                "服务端 distance 口径与本地余弦均不符（distance=%.4f, 本地余弦=%.4f），"
+                "以本地余弦为准；请核对服务端版本与度量配置",
+                distance,
+                sim,
+            )
+        return round(0.0 if sim < 0.0 else (1.0 if sim > 1.0 else sim), 4)
 
     def query_scalar(
         self,

@@ -38,7 +38,7 @@ httpx>=0.27
 #      = 2.6.17，客户/端服务次版本对齐（2.6 vs 2.6）避免协议漂移。
 #
 #   B. 本机免 Docker 路径 —— Milvus Lite（单进程， Windows 实测可用）
-#      pip install "pymilvus==2.6.17" "milvus-lite>=3.0,<3.3"
+#      pip install "pymilvus==2.6.17" "milvus-lite==3.2.1"
 #      然后 AICG_RETRIEVAL_URI=<路径>/composition_cases.db
 #      **诚实边界**：Milvus 官方支持矩阵仍只写 Linux/macOS，Windows 属
 #      实测可用但不受官方支持（且踩到两条裂缝，见调研文档 §6）：

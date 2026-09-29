@@ -1,7 +1,7 @@
 {
   "_comment": "全量 pytest 计数的唯一真源。由 scripts/sync_test_counts.py 依据真实 pytest 输出写入，请勿手工编辑——手工同步正是本文件要消灭的动作。",
-  "passed": 367,
-  "collected": 374,
+  "passed": 370,
+  "collected": 377,
   "skipped": 7,
   "note": "6 项 skipped 是未设 AICG_RETRIEVAL_URI 时跳过的真实 Milvus 集成用例",
   "updated": "2026-09-29",

@@ -184,6 +184,19 @@ yaw（rule 后端无人脸估计）、后者依赖显著性图（rule 后端为 
    `os.rename(tmp, manifest.json)`，目标存在时抛 `WinError 183`；集成测试用例
    因此改为"每个用例一个独立 `.db` 文件"而不是靠 drop 清理。
    → 重建请用新路径，别依赖 `--rebuild` 的 drop。
+4. **`distance` 字段的语义会被小版本翻转**（由 CI job `retrieval` 首跑抓出）。
+   同一套 COSINE 检索：
+
+   | milvus-lite | 相同向量 | 正交向量 | 口径 |
+   | --- | --- | --- | --- |
+   | **3.0** | `distance = 0.0000` | `distance = 1.0000` | `distance = 1 − 余弦` |
+   | **3.2.1** | `distance = 1.0000` | `distance = 0.0000` | `distance = 余弦本身` |
+
+   于是"自身向量"在 3.2.1 上按 `1 - distance` 解读会得到 **0.0** —— 同一份代码
+   换个小版本，相似度**方向翻转**。对策：相似度改为**取回入库向量在本地按余弦
+   重算**（`MilvusStore._cosine_similarity`），排序也由我们自己做，`distance`
+   只留作观测；口径与本地余弦明显不符时记 WARNING。
+   **教训**：交付契约里的数值，不要交给第三方字段的"约定语义"去定义。
 
 **版本配套的连带结论**：Lite 3.x 的 search 请求需要 `function_score` 字段，
 pymilvus 2.5.x 不发该字段（握手能过、一检索就报错）。为不破坏自己立的

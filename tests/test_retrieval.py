@@ -394,6 +394,96 @@ class TestEnsureLoaded:
         assert excinfo.value.reason == "dimension_mismatch"
 
 
+class TestSimilaritySemantics:
+    """相似度必须由我们自己定义：**服务端 distance 口径不可信**。
+
+    现场：CI job `retrieval` 首跑挂在这里 —— Lite **3.2.1** 把余弦相似度直接
+    放进 `distance`，而 Lite 3.0 / Standalone 放的是 `1 - 相似度`。同是 COSINE
+    检索，两种口径算出的相似度**方向相反**（自身向量的报告值会变成 0.0）。
+    因此实现改为取回入库向量在本地算余弦；本类用假客户端把两种口径都钉死。
+    """
+
+    @staticmethod
+    def _client_returning(distances_in_sim_convention: bool):
+        """假服务端：可按两种语义返回 distance，并给出入库向量。"""
+        rows = [
+            ("far", [0.9] * 8),
+            ("mid", [0.5] * 8),
+            ("near", [0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.6, 0.7]),
+        ]
+
+        class _Client:
+            def has_collection(self, name):
+                return True
+
+            def describe_collection(self, name):
+                return {"fields": [{"name": "vector", "params": {"dim": DIM}}]}
+
+            def get_load_state(self, name):
+                return SimpleNamespace(state="Loaded")
+
+            def search(self, collection, data, limit, filter, search_params, output_fields, timeout):
+                q = np.asarray(data[0], dtype=np.float32)
+                hits = []
+                for cid, vec in rows:
+                    v = np.asarray(vec, dtype=np.float32)
+                    sim = float(np.dot(q, v) / (np.linalg.norm(q) * np.linalg.norm(v)))
+                    # 关键：服务端 report 的口径不同——要么 1-sim，要么 sim 本身
+                    dist = sim if distances_in_sim_convention else 1.0 - sim
+                    hits.append(
+                        {
+                            "id": cid,
+                            "distance": dist,
+                            "entity": {
+                                "case_id": cid,
+                                "image_ref": f"assets/{cid}.jpg",
+                                "pattern": "center",
+                                "scene_tags": [],
+                                "description": None,
+                                "vector": vec,
+                            },
+                        }
+                    )
+                # 服务端总是按相关度排好序（两种口径下顺序一致）
+                return [hits]
+
+        return _Client()
+
+    @pytest.mark.parametrize("sim_convention", [True, False])
+    def test_self_similarity_is_one_in_both_conventions(self, monkeypatch, sim_convention):
+        st = MilvusStore(MilvusConfig(uri="http://stub:19530", collection="cases"))
+        monkeypatch.setattr(st, "_get_client", lambda: self._client_returning(sim_convention))
+        q = [0.1, 0.2, 0.3, 0.4, 0.5, 0.5, 0.6, 0.7]
+        hits = st.search(q, top_k=3)
+        assert [h["case_id"] for h in hits][0] == "near"
+        assert hits[0]["similarity"] == pytest.approx(1.0, abs=1e-3), hits
+        sims = [h["similarity"] for h in hits]
+        assert sims == sorted(sims, reverse=True), sims
+
+    def test_falls_back_to_distance_when_vector_missing(self, monkeypatch):
+        """拿不到入库向量时退回 `1 - distance`，而不是抛错。"""
+
+        class _Client:
+            def has_collection(self, name):
+                return True
+
+            def describe_collection(self, name):
+                return {"fields": [{"name": "vector", "params": {"dim": DIM}}]}
+
+            def get_load_state(self, name):
+                return SimpleNamespace(state="Loaded")
+
+            def search(self, collection, data, limit, filter, search_params, output_fields, timeout):
+                return [[{"id": "x", "distance": 0.25, "entity": {"case_id": "x", "image_ref": "a/x.jpg",
+                                                                  "pattern": "center", "scene_tags": [],
+                                                                  "description": None}}]]
+
+        st = MilvusStore(MilvusConfig(uri="http://stub:19530", collection="cases"))
+        monkeypatch.setattr(st, "_get_client", lambda: _Client())
+        hits = st.search([0.1] * 8, top_k=1)
+        assert hits[0]["similarity"] == pytest.approx(0.75, abs=1e-3)
+
+
 class TestLocalDirBootstrap:
     """本地文件模式（Milvus Lite）的目录自举——**CI 全新克隆才暴露的缺陷**。
 

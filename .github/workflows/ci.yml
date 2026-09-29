@@ -55,6 +55,10 @@ jobs:
   # 3.x 改为纯 Python（faiss + grpcio + pyarrow），在 Linux CI 上属官方支持范围。
   # 本机 Windows 上的同款验证属"官方不支持但实测可用"（裂缝见调研文档 §6），
   # 因此**不在 Windows 上跑这一 job**，避免把越界用法变成 CI 承诺。
+  #
+  # 依赖版本**锁到小版本**而不用范围：实测 milvus-lite 3.0 与 3.2.1 的 search
+  # 结果里 `distance` 字段语义相反（前者 = 1-余弦，后者 = 余弦本身）。放开范围
+  # 等于允许某天静默拿到方向翻转的相似度（调研文档 §6.2 第 4 条）。
   retrieval:
     name: FR-09 真实 Milvus 端到端
     runs-on: ubuntu-latest
@@ -81,7 +85,7 @@ jobs:
             "httpx>=0.27" \
             "pytest>=8.0" \
             "pymilvus==2.6.17" \
-            "milvus-lite>=3.0,<3.3"
+            "milvus-lite==3.2.1"
 
       - name: 用真实素材建 8 维案例库
         env:
