@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -85,6 +86,7 @@ class MilvusStore:
         pymilvus = _import_pymilvus()
         if pymilvus is None:
             raise StoreError("pymilvus_unavailable", "pymilvus 未安装，向量检索不可用")
+        self._ensure_local_dir(self.cfg.uri)
         try:
             client = pymilvus.MilvusClient(
                 uri=self.cfg.uri,
@@ -99,6 +101,31 @@ class MilvusStore:
         self._client = client
         log.info("Milvus 已连接: %s", self.cfg.uri)
         return client
+
+    @staticmethod
+    def _ensure_local_dir(uri: str) -> None:
+        """本地文件模式（Milvus Lite）下，确保 `.db` 的父目录存在。
+
+        为什么必须在这里做：**Lite 不会自己建父目录**，父目录不存在时
+        `MilvusClient(uri=...)` 直接抛
+        ``Open local milvus failed, dir: <dir> not exists``。
+        本机开发时目录往往已经存在（手工 mkdir 过），于是这个坑会被一直
+        藏住——**直到 CI 全新克隆时才第一次暴露**（run 36582758221 挂在这一步）。
+
+        只对本地路径生效：`http://` / `https://` 这类远端地址不处理。
+        """
+        if uri.startswith(("http://", "https://")):
+            return
+        parent = os.path.dirname(uri)
+        if not parent:
+            return
+        try:
+            os.makedirs(parent, exist_ok=True)
+        except OSError as exc:  # noqa: BLE001 — 目录建不了等同于连不上本地库
+            raise StoreError(
+                "connection_failed",
+                f"本地向量库目录不可用（{parent}）: {exc}",
+            ) from exc
 
     # ------------------------------------------------------------------
     # Collection 生命周期

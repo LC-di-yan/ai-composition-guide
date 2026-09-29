@@ -24,9 +24,13 @@
 ### 计划中
 
 - M4-5 `language/tts.py` 接入真实 TTS 引擎
-- **FR-09 真实 Milvus 端到端验证**（代码与单测已落地，等本机 Docker daemon；见 [0.7.0](#070---2026-09-29) 边界）
-- 本机 `docker compose up api milvus` 全链路互通实测
-- CI 侧 Milvus service container
+- ~~**FR-09 真实 Milvus 端到端验证**（代码与单测已落地，等本机 Docker daemon）~~
+  → ✅ **已于 [0.8.0](#080---2026-09-29) 完成**：改走 Milvus Lite 单进程，
+  真建库 + 真检索 + CI 可复现
+- 本机 `docker compose up api milvus` 全链路互通实测（**仍被本机 Docker 不可用阻塞**，
+  根因是 `wsl.exe` 被执行环境黑名单拦截）
+- ~~CI 侧 Milvus service container~~ → 改为 CI job `retrieval`（Milvus Lite，
+  免 daemon），已落地
 - INT8 量化前后推理耗时对比
 - INT8 量化前后推理耗时对比
 - 架构图与关键示意图（`docs/assets/`）
@@ -74,12 +78,19 @@
   把"Milvus 根本没起来"这个更严重的事实藏掉。这个缺陷是**第二次修复引出的**，
   只跑改过的文件测不出来，是跑全量套件才现形（教训见 测试与验收.md §4.3g）
 - 纯文本无关键词命中时 `index_size` 谎报 `None`：明明连得上却假称"不知道库多大"
+- **Milvus Lite 的 `.db` 父目录不会被自动创建**（缺陷由新增的 CI job
+  `retrieval` 首跑抓出，run 36582758221）：本机目录早被手工 mkdir 所以从未暴露，
+  全新克隆的 runner 上建库第一步就失败 —— 这是**第三次**撞「本地有、仓库没有」
+  型盲区。现由 `MilvusStore._ensure_local_dir()` 在连接前自举（远端地址跳过）
 
 ### 验证
 
-- 真实建库：42 张素材 → **40 条入库 / 库内 40 条**（2 张无主体诚实跳过）
+- 真实建库：42 张素材 → **40 条入库 / 库内 40 条**（2 张无主体诚实跳过）；
+  并在"父目录完全不存在"的路径上复跑成功（即 CI 全新克隆的条件）
 - `/v1/cases/search` 走完整 HTTP 栈以图搜图：**不降级**、相似度降序、top1 > 0.9
-- 全量测试 **370 项 / 363 passed / 7 skipped**；三道静态门禁全绿
+- 全量测试 **374 项 / 367 passed / 7 skipped**；CI 裸环境模拟 0 失败；
+  三道静态门禁全绿
+- **新增 CI job 首跑即抓到一个真缺陷**（Lite 父目录），修复后由 CI 复跑确认
 
 ### 诚实边界（未做/未实测）
 

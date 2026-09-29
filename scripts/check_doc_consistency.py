@@ -30,6 +30,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -52,6 +53,38 @@ EXCLUDE_PARTS = {
 }
 
 # ---------------------------------------------------------------------------
+# 测试口径的**唯一真源**：scripts/test_counts.json
+#
+# 这两个数字以前写死在本文件的 FACTS 里，于是每次新增用例都要手工改一堆地方
+# （本文件 2 处 + 若干文档），到第三次终于改成现在的分工：
+#     scripts/sync_test_counts.py  ← 负责**写**（依据真实 pytest 输出）
+#     本文件                        ← 负责**读**（这里是守卫，不是账本）
+# 基线文件缺失/损坏时退回内置值，并明确告警——宁可噪音提醒，也不能让门禁静默失效。
+# ---------------------------------------------------------------------------
+_COUNTS_PATH = PROJECT_ROOT / "scripts" / "test_counts.json"
+_FALLBACK_COUNTS = {"passed": 367, "collected": 374, "skipped": 7}
+
+
+def _load_test_counts() -> dict:
+    if _COUNTS_PATH.exists():
+        try:
+            data = json.loads(_COUNTS_PATH.read_text(encoding="utf-8"))
+            if "passed" in data and "collected" in data:
+                return data
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"[warn] 读不到 {_COUNTS_PATH.name}（{exc}），退回内置基线",
+                  file=sys.stderr)
+    print(f"[warn] {_COUNTS_PATH.name} 不可用，退回内置基线——请先跑 "
+          f"scripts/sync_test_counts.py 写入真源", file=sys.stderr)
+    return dict(_FALLBACK_COUNTS)
+
+
+_TEST_COUNTS = _load_test_counts()
+PASSED = str(_TEST_COUNTS["passed"])
+COLLECTED = str(_TEST_COUNTS["collected"])
+SKIPPED = int(_TEST_COUNTS.get("skipped", 0))
+
+# ---------------------------------------------------------------------------
 # 事实登记表：每个"易漂移事实"声明**全部合法取值**。
 # 只要文档里出现的数字不在集合内，就报错——等于把"口径变更"强制显式化。
 #
@@ -64,11 +97,12 @@ FACTS: list[dict] = [
     {
         "name": "测试通过数",
         "pattern": r"(\d{3})\s*(?:passed|用例通过|用例)",
-        "allowed": {"363"},
-        "why": "唯一当前值（实测：370 收集 - 7 skipped，其中 6 项是未设\n"
-               "AICG_RETRIEVAL_URI 时跳过的真实 Milvus 集成用例）。\n"
-               "355 是上一轮的值（+8 = 新增 load/warmup 6 项 + 纯文本降级 1 项）。\n"
-               "334 是 0.6.2 的历史值（+21 = 新增 retrieval 18 项 + test_api 3 项）。",
+        "allowed": {PASSED},
+        "why": f"唯一当前值 {PASSED}（= 收集 {COLLECTED} − skipped {SKIPPED}），\n"
+               f"来自唯一真源 `scripts/test_counts.json`，\n"
+               f"**不要在这里改数字**：跑 scripts/sync_test_counts.py 写入真源即可。\n"
+               "历史值（331 / 334 / 355 / 363…）出现在 CHANGELOG 与缺陷快照文档里"
+               "是**对的**，已豁免；其余文档只允许写当前值。",
         # 两个豁免文件都是**流水账/历史快照**：其中的旧值是当时的事实，
         # 改成当前值等于伪造历史。其余文档必须只写当前值。
         # - CHANGELOG.md：版本流水账
@@ -81,10 +115,9 @@ FACTS: list[dict] = [
     {
         "name": "测试收集总数",
         "pattern": r"(\d{3})\s*项\s*/",
-        "allowed": {"370"},
-        "why": "370 = 363 passed + 7 skipped（pytest 输出实测）。\n"
-               "356 是上一轮的值（+14 = TestEnsureLoaded 5 + TestWarmup 2 +\n"
-               "纯文本降级 1 + 真实 Milvus 集成 6）。\n"
+        "allowed": {COLLECTED},
+        "why": f"{COLLECTED} = {PASSED} passed + {SKIPPED} skipped，\n"
+               f"同样来自唯一真源 `scripts/test_counts.json`。\n"
                "与「测试通过数」是**两个口径**：总数用「N 项 /」后缀，通过数用\n"
                "「N passed / N 用例」后缀——禁止混用（曾因写「335 用例」被抓）。",
         "exempt_files": {"CHANGELOG.md"},

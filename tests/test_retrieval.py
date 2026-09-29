@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import numpy as np
@@ -391,6 +392,42 @@ class TestEnsureLoaded:
         with pytest.raises(StoreError) as excinfo:
             self._store(_Client(), monkeypatch).ensure_collection()
         assert excinfo.value.reason == "dimension_mismatch"
+
+
+class TestLocalDirBootstrap:
+    """本地文件模式（Milvus Lite）的目录自举——**CI 全新克隆才暴露的缺陷**。
+
+    现场：Lite 不会自建父目录，父目录不存在时连接直接失败，
+    报 ``Open local milvus failed, dir: <dir> not exists``。本机开发时目录
+    多半已经存在，坑就被藏住了（run 36582758221 挂在建库第一步）。
+    """
+
+    def test_creates_missing_parent(self, tmp_path):
+        target = tmp_path / "nested" / "deep" / "cases.db"
+        MilvusStore._ensure_local_dir(str(target))
+        assert target.parent.is_dir()
+
+    def test_http_uri_is_untouched(self, tmp_path, monkeypatch):
+        """远端地址不该被当路径处理（免得造出叫 http: 的目录）。"""
+        seen: list[str] = []
+        monkeypatch.setattr(os, "makedirs", lambda p, exist_ok=False: seen.append(str(p)))
+        MilvusStore._ensure_local_dir("http://127.0.0.1:19530")
+        MilvusStore._ensure_local_dir("https://milvus.internal:19530")
+        assert seen == []
+
+    def test_existing_dir_is_fine(self, tmp_path):
+        d = tmp_path / "already"
+        d.mkdir()
+        MilvusStore._ensure_local_dir(str(d / "cases.db"))
+        assert (d / "cases.db").parent == d  # 幂等，不抛错即可
+
+    def test_bare_filename_noop(self, tmp_path, monkeypatch):
+        """裸文件名（无目录部分）不该触发建目录。"""
+        monkeypatch.chdir(tmp_path)
+        seen: list[str] = []
+        monkeypatch.setattr(os, "makedirs", lambda p, exist_ok=False: seen.append(str(p)))
+        MilvusStore._ensure_local_dir("cases.db")
+        assert seen == []
 
 
 class TestWarmup:

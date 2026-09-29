@@ -46,8 +46,10 @@ docker run -d --name milvus-standalone \
   -p 19530:19530 -p 9091:9091 \
   --health-cmd="curl -f http://localhost:9091/healthz" \
   --health-interval=30s --health-start-period=90s --health-timeout=20s --health-retries=3 \
-  milvusdb/milvus:v2.5.11 \
+  milvusdb/milvus:v2.6.24 \
   milvus run standalone
+# 版本与 docker-compose.yml 保持一致；本机需先把 -v 源目录建好（Windows 上 Docker
+# 不可用，见 §6.1，本配方的执行情况因此在本地**未实测**）
 ```
 
 - `embedEtcd.yaml`：`listen-client-urls: http://0.0.0.0:2379`、`advertise-client-urls: http://0.0.0.0:2379`、`quota-backend-bytes: 4294967296`、`auto-compaction-mode: revision`、`auto-compaction-retention: "1000"`

@@ -22,7 +22,7 @@
 | 指令抖动：平均持续帧数 | 2.82 → **34.29** 帧 | 越长约稳定 | ✅ 提升 **12.4×** |
 | 构图评分拟合度 SRCC | **+0.9113**（n=47） | > 0.6 | ✅ **统计有效**；原则驱动标注，偏相关 +0.82 |
 | 验收门禁 | **PASS 3 / WARN 0 / FAIL 0** | 0 FAIL | ✅ |
-| 自动化测试 | **363 passed, 7 skipped** | 全绿 | ✅ |
+| 自动化测试 | **367 passed, 7 skipped** | 全绿 | ✅ |
 
 > **关于抖动指标的口径变更（v0.6.1）**：上表 84 → 6（93.02%）为**修复 D-11 后**的复测值；
 > 官方基线记录为 84 → 19（77.38%）。同一次修复同时解开了「10 帧全部输出 `move_closer`」
@@ -202,7 +202,7 @@
 | 关系库 | PostgreSQL + SQLAlchemy | ✅ 已定（M4 接入） | — |
 | 容器化 | Docker / Docker Compose | ✅ 已定 | — |
 | API 契约 | Pydantic 2.13.4 | ✅ 已定 | 所有响应含 `degraded` + `degraded_reason` |
-| 测试 | pytest（363 passed / 7 skipped） | ✅ 已定 | 含缺陷回归用例 |
+| 测试 | pytest（367 passed / 7 skipped） | ✅ 已定 | 含缺陷回归用例 |
 | 前端 Demo | 原生 HTML + Canvas（`web/index.html`） | ✅ 已定 | 零构建、零依赖、三种模式 |
 | 视频可视化 | OpenCV 4.10（ASCII-only 字幕） | ✅ 已定 | Hershey 字体无 CJK 字形，中文由 Web 轨承担 |
 | 语音播报（TTS） | 待确认 | ⛔ | M5+ |
@@ -218,7 +218,7 @@
 # 1. 安装依赖（Python 3.12）
 pip install -r requirements.txt        # 版本下限；精确锁定见 requirements.lock.txt
 
-# 2. 运行全部测试（363 passed / 7 skipped）
+# 2. 运行全部测试（367 passed / 7 skipped）
 python -m pytest -q
 
 # 3. 一键跑验收报告（延迟 / 防抖 / SRCC + 文档口径 四项实测 + PASS/WARN/FAIL 判定）
